@@ -1,8 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 const NAVY = '#1B3A6B';
+const GREEN = '#2E7D32';
 
 const GAMES = [
   {
@@ -16,8 +16,8 @@ const GAMES = [
     key: 'solitario',
     label: 'Solitario',
     image: require('../../assets/icons/solitaire.png'),
-    bg: '#4CAF50',
-    labelColor: '#1B5E20',
+    bg: '#6C5CE7',
+    labelColor: '#FFFFFF',
   },
   {
     key: 'sudoku',
@@ -77,12 +77,6 @@ export default function GamesScreen() {
 
       {/* Divider */}
       <View style={styles.divider} />
-
-      {/* Waiting section */}
-      <View style={styles.waitRow}>
-        <Ionicons name="time-outline" size={28} color={NAVY} />
-        <Text style={styles.waitText}>Estoy esperando turno</Text>
-      </View>
 
       {/* Wait mode button */}
       <Pressable
@@ -160,22 +154,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
   },
-  waitRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 14,
-  },
-  waitText: {
-    fontSize: 19,
-    fontFamily: 'Montserrat_400Regular',
-    color: '#333333',
-  },
   button: {
     width: '100%',
     minHeight: 70,
     borderRadius: 16,
-    backgroundColor: NAVY,
+    backgroundColor: GREEN,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 18,
