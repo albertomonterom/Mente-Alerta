@@ -19,56 +19,46 @@ function formatTime(seconds: number): string {
 }
 
 export default function WaitScreen() {
-  const { isActive, timeLeft, startWaitMode, stopWaitMode } = useWaitMode();
+  const { isActive, timeLeft, startWaitMode, stopWaitMode, largerText, highContrast } = useWaitMode();
+  const fs = (base: number) => base + (largerText ? 5 : 0);
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, highContrast && { backgroundColor: '#FFFFFF' }]}>
       {isActive ? (
         /* ── Active state ─────────────────────────────────── */
         <>
-          <Text style={styles.pageTitle}>Modo Espera Activado</Text>
+          <Text style={[styles.pageTitle, { fontSize: fs(30), color: highContrast ? '#000000' : NAVY }]}>Modo Espera Activado</Text>
 
-          <View style={styles.card}>
-            <Text style={styles.hint}>Recuerda estar atento a tu turno</Text>
+          <View style={[styles.card, highContrast && { borderColor: '#555555', borderWidth: 2 }]}>
+            <Text style={[styles.hint, { fontSize: fs(19), color: highContrast ? '#222222' : '#555555' }]}>Recuerda estar atento a tu turno</Text>
 
             <View style={styles.timerBox}>
-              <Text style={styles.timerText}>{formatTime(timeLeft)}</Text>
+              <Text style={[styles.timerText, { fontSize: fs(56) }]}>{formatTime(timeLeft)}</Text>
             </View>
 
-            <Text style={styles.subHint}>Tiempo restante estimado...</Text>
+            <Text style={[styles.subHint, { fontSize: fs(17), color: highContrast ? '#333333' : '#777777' }]}>Tiempo restante estimado...</Text>
 
             <View style={styles.divider} />
 
-            <View style={styles.actions}>
-              <Pressable
-                style={[styles.button, styles.buttonStop]}
-                accessibilityRole="button"
-                accessibilityLabel="Parar alerta"
-                onPress={stopWaitMode}
-              >
-                <Text style={styles.buttonStopText}>PARAR ALERTA</Text>
-              </Pressable>
-
-              <Pressable
-                style={[styles.button, styles.buttonChange]}
-                accessibilityRole="button"
-                accessibilityLabel="Cambiar tiempo"
-                onPress={stopWaitMode}
-              >
-                <Text style={styles.buttonChangeText}>Cambiar{'\n'}tiempo</Text>
-              </Pressable>
-            </View>
+            <Pressable
+              style={[styles.button, styles.buttonStop]}
+              accessibilityRole="button"
+              accessibilityLabel="Parar alerta"
+              onPress={stopWaitMode}
+            >
+              <Text style={[styles.buttonStopText, { fontSize: fs(17) }]}>PARAR ALERTA</Text>
+            </Pressable>
           </View>
         </>
       ) : (
         /* ── Idle state ───────────────────────────────────── */
         <>
-          <Text style={styles.pageTitle}>Modo Espera</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.pageTitle, { fontSize: fs(30), color: highContrast ? '#000000' : NAVY }]}>Modo Espera</Text>
+          <Text style={[styles.subtitle, { fontSize: fs(19), color: highContrast ? '#222222' : '#555555' }]}>
             Selecciona en cuánto tiempo{'\n'}deseas ser alertado.
           </Text>
 
-          <View style={styles.card}>
+          <View style={[styles.card, highContrast && { borderColor: '#555555', borderWidth: 2 }]}>
             {DURATIONS.map(({ label, minutes }) => (
               <Pressable
                 key={minutes}
@@ -77,7 +67,7 @@ export default function WaitScreen() {
                 accessibilityLabel={`Iniciar ${label}`}
                 onPress={() => startWaitMode(minutes)}
               >
-                <Text style={styles.durationText}>{label}</Text>
+                <Text style={[styles.durationText, { fontSize: fs(22) }]}>{label}</Text>
               </Pressable>
             ))}
           </View>
@@ -179,13 +169,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#DDDDDD',
     marginVertical: 6,
   },
-  actions: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
   button: {
-    flex: 1,
+    width: '100%',
     minHeight: 68,
     borderRadius: 12,
     alignItems: 'center',
@@ -202,15 +187,5 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_800ExtraBold',
     textAlign: 'center',
     letterSpacing: 0.8,
-  },
-  buttonChange: {
-    backgroundColor: NAVY,
-  },
-  buttonChangeText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontFamily: 'Montserrat_600SemiBold',
-    textAlign: 'center',
-    lineHeight: 23,
   },
 });

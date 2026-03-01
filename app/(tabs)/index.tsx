@@ -3,18 +3,21 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useWaitMode } from '@/context/wait-mode-context';
 
 const NAVY = '#1B3A6B';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { largerText, highContrast } = useWaitMode();
+  const fs = (base: number) => base + (largerText ? 5 : 0);
 
   return (
     <ThemedView style={styles.container}>
       {/* Title & subtitle */}
       <View style={styles.header}>
-        <ThemedText style={styles.title}>Mente Alerta</ThemedText>
-        <ThemedText style={styles.subtitle}>
+        <ThemedText style={[styles.title, { fontSize: fs(49), lineHeight: fs(54), color: highContrast ? '#000000' : NAVY }]}>Mente Alerta</ThemedText>
+        <ThemedText style={[styles.subtitle, { fontSize: fs(24), lineHeight: fs(32), color: highContrast ? '#222222' : '#555555' }]}>
           Juegos sencillos para ejercitar{'\n'}tu mente mientras esperas.
         </ThemedText>
       </View>
@@ -27,7 +30,7 @@ export default function HomeScreen() {
           accessibilityLabel="Comenzar"
           onPress={() => router.push('/games')}
         >
-          <ThemedText style={styles.buttonText}>COMENZAR</ThemedText>
+          <ThemedText style={[styles.buttonText, { fontSize: fs(25), lineHeight: fs(32), textAlign: 'center' }]}>COMENZAR</ThemedText>
         </Pressable>
       </View>
     </ThemedView>

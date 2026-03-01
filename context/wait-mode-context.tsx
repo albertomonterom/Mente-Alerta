@@ -23,6 +23,16 @@ interface WaitModeContextValue {
   triggerAlert: () => void;
   /** Start a one-shot alert after the given number of seconds. */
   scheduleAlertAfter: (seconds: number) => void;
+  /** Default duration (minutes) selected in Settings */
+  defaultDuration: number;
+  /** Update the default duration */
+  setDefaultDuration: (minutes: number) => void;
+  /** Whether larger text mode is enabled */
+  largerText: boolean;
+  setLargerText: (v: boolean) => void;
+  /** Whether high contrast mode is enabled */
+  highContrast: boolean;
+  setHighContrast: (v: boolean) => void;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -34,9 +44,14 @@ const WaitModeContext = createContext<WaitModeContextValue | null>(null);
 export function WaitModeProvider({ children }: { children: React.ReactNode }) {
   const [isActive, setIsActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [defaultDuration, setDefaultDuration] = useState(5);
+  const [largerText, setLargerText] = useState(false);
+  const [highContrast, setHighContrast] = useState(false);
 
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scheduledRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** True only when the timer reaches 0 on its own — not on manual stop */
+  const naturallyExpiredRef = useRef(false);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -81,6 +96,7 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
           if (prev <= 1) {
             clearInterval(countdownRef.current!);
             countdownRef.current = null;
+            naturallyExpiredRef.current = true;
             setIsActive(false);
             return 0;
           }
@@ -94,6 +110,7 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
   // ── stopWaitMode ───────────────────────────────────────────────────────────
 
   const stopWaitMode = useCallback(() => {
+    naturallyExpiredRef.current = false;
     clearCountdown();
     clearScheduled();
     setIsActive(false);
@@ -113,25 +130,13 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
     [clearScheduled, triggerAlert],
   );
 
-  // ── Fire alert when countdown hits 0 ──────────────────────────────────────
-
+  // ── Fire alert only when countdown naturally reaches 0 ───────────────────
   useEffect(() => {
-    if (timeLeft === 0 && !isActive && countdownRef.current === null) {
-      // only fire if we were previously running (avoid firing on initial mount)
-    }
-  }, [timeLeft, isActive]);
-
-  // Trigger alert when countdown naturally finishes
-  const hasStartedRef = useRef(false);
-  useEffect(() => {
-    if (isActive) {
-      hasStartedRef.current = true;
-    }
-    if (!isActive && timeLeft === 0 && hasStartedRef.current) {
-      hasStartedRef.current = false;
+    if (!isActive && naturallyExpiredRef.current) {
+      naturallyExpiredRef.current = false;
       triggerAlert();
     }
-  }, [isActive, timeLeft, triggerAlert]);
+  }, [isActive, triggerAlert]);
 
   // ── Cleanup on unmount ─────────────────────────────────────────────────────
 
@@ -151,6 +156,12 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
     stopWaitMode,
     triggerAlert,
     scheduleAlertAfter,
+    defaultDuration,
+    setDefaultDuration,
+    largerText,
+    setLargerText,
+    highContrast,
+    setHighContrast,
   };
 
   return (

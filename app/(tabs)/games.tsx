@@ -1,3 +1,4 @@
+import { useWaitMode } from '@/context/wait-mode-context';
 import { useRouter } from 'expo-router';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -37,16 +38,18 @@ const GAMES = [
 
 export default function GamesScreen() {
   const router = useRouter();
+  const { defaultDuration, startWaitMode, largerText, highContrast } = useWaitMode();
+  const fs = (base: number) => base + (largerText ? 5 : 0);
 
   return (
     <ScrollView
-      style={styles.scrollView}
+      style={[styles.scrollView, highContrast && { backgroundColor: '#FFFFFF' }]}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
       {/* Title */}
-      <Text style={styles.title}>Mente Alerta</Text>
-      <Text style={styles.subtitle}>¡Elige un juego para empezar!</Text>
+      <Text style={[styles.title, { fontSize: fs(42), lineHeight: fs(52), color: highContrast ? '#000000' : NAVY }]}>Mente Alerta</Text>
+      <Text style={[styles.subtitle, { fontSize: fs(20), color: highContrast ? '#222222' : '#444444' }]}>¡Elige un juego para empezar!</Text>
 
       {/* Divider */}
       <View style={styles.divider} />
@@ -68,7 +71,7 @@ export default function GamesScreen() {
               style={styles.cardImage}
               resizeMode="contain"
             />
-            <Text style={[styles.cardLabel, { color: game.labelColor }]}>
+            <Text style={[styles.cardLabel, { color: highContrast ? '#000000' : game.labelColor, fontSize: fs(19) }]}>
               {game.label}
             </Text>
           </Pressable>
@@ -83,9 +86,12 @@ export default function GamesScreen() {
         style={styles.button}
         accessibilityRole="button"
         accessibilityLabel="Activar Modo Espera"
-        onPress={() => router.push('/wait')}
+        onPress={() => {
+          startWaitMode(defaultDuration);
+          router.push('/wait');
+        }}
       >
-        <Text style={styles.buttonText}>ACTIVAR MODO ESPERA</Text>
+        <Text style={[styles.buttonText, { fontSize: fs(21) }]}>ACTIVAR MODO ESPERA</Text>
       </Pressable>
     </ScrollView>
   );
@@ -174,5 +180,6 @@ const styles = StyleSheet.create({
     fontSize: 21,
     fontFamily: 'Montserrat_800ExtraBold',
     letterSpacing: 1.2,
+    textAlign: 'center',
   },
 });
