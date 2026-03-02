@@ -19,11 +19,14 @@ export default function SettingsScreen() {
   const [nameForAlert, setNameForAlert] = useState('');
 
   // ── Tipo de alerta ─────────────────────────────────────────────────────────
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [vibrationEnabled, setVibrationEnabled] = useState(true);
-
   // ── Tiempo predeterminado + Accesibilidad (from global context) ──────────
-  const { defaultDuration, setDefaultDuration, largerText, setLargerText, highContrast, setHighContrast } = useWaitMode();
+  const {
+    defaultDuration, setDefaultDuration,
+    largerText, setLargerText,
+    highContrast, setHighContrast,
+    soundEnabled, setSoundEnabled,
+    vibrationEnabled, setVibrationEnabled,
+  } = useWaitMode();
   const fs = (base: number) => base + (largerText ? 5 : 0);
 
   return (

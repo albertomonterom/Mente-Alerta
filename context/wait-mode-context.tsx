@@ -1,3 +1,4 @@
+import { Audio } from 'expo-av';
 import React, {
     createContext,
     useCallback,
@@ -33,6 +34,12 @@ interface WaitModeContextValue {
   /** Whether high contrast mode is enabled */
   highContrast: boolean;
   setHighContrast: (v: boolean) => void;
+  /** Whether alert sound is enabled */
+  soundEnabled: boolean;
+  setSoundEnabled: (v: boolean) => void;
+  /** Whether alert vibration is enabled */
+  vibrationEnabled: boolean;
+  setVibrationEnabled: (v: boolean) => void;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -49,9 +56,12 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
   const [highContrast, setHighContrast] = useState(false);
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertType, setAlertType] = useState<'timer' | 'voice'>('timer');
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [vibrationEnabled, setVibrationEnabled] = useState(true);
 
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scheduledRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voiceSoundRef = useRef<import('expo-av').Audio.Sound | null>(null);
   /** True only when the timer reaches 0 on its own — not on manual stop */
   const naturallyExpiredRef = useRef(false);
 
@@ -71,13 +81,57 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // ── stopAlertSound ─────────────────────────────────────────────────────────
+
+  const stopAlertSound = useCallback(async () => {
+    if (voiceSoundRef.current) {
+      try {
+        await voiceSoundRef.current.stopAsync();
+        await voiceSoundRef.current.unloadAsync();
+      } catch (_) {}
+      voiceSoundRef.current = null;
+    }
+  }, []);
+
   // ── triggerAlert ───────────────────────────────────────────────────────────
 
-  const triggerAlert = useCallback((type: 'timer' | 'voice' = 'timer') => {
-    Vibration.vibrate([0, 500, 200, 500, 200, 500]);
+  const triggerAlert = useCallback(async (type: 'timer' | 'voice' = 'timer') => {
+    if (vibrationEnabled) {
+      Vibration.vibrate([0, 500, 200, 500, 200, 500]);
+    }
+    if (soundEnabled) {
+      try {
+        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+        if (type === 'timer') {
+          // Play once — soft notification ding
+          await stopAlertSound(); // clear any previous
+          const { sound } = await Audio.Sound.createAsync(
+            require('../assets/sounds/alert-timer.mp3'),
+            { shouldPlay: true, volume: 0.9 },
+          );
+          voiceSoundRef.current = sound;
+          sound.setOnPlaybackStatusUpdate((status) => {
+            if (status.isLoaded && status.didJustFinish) {
+              sound.unloadAsync();
+              voiceSoundRef.current = null;
+            }
+          });
+        } else {
+          // Loop until dismissed — urgent alarm
+          await stopAlertSound(); // clear any previous
+          const { sound } = await Audio.Sound.createAsync(
+            require('../assets/sounds/alert-voice.mp3'),
+            { shouldPlay: true, volume: 1.0, isLooping: true },
+          );
+          voiceSoundRef.current = sound;
+        }
+      } catch (_) {
+        // Audio unavailable — fail silently
+      }
+    }
     setAlertType(type);
     setAlertVisible(true);
-  }, []);
+  }, [soundEnabled, vibrationEnabled, stopAlertSound]);
 
   // ── startWaitMode ──────────────────────────────────────────────────────────
 
@@ -161,6 +215,10 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
     setLargerText,
     highContrast,
     setHighContrast,
+    soundEnabled,
+    setSoundEnabled,
+    vibrationEnabled,
+    setVibrationEnabled,
   };
 
   return (
@@ -172,7 +230,10 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
         transparent
         animationType="fade"
         statusBarTranslucent
-        onRequestClose={() => setAlertVisible(false)}
+        onRequestClose={() => {
+          stopAlertSound();
+          setAlertVisible(false);
+        }}
       >
         <View style={modalStyles.overlay}>
           <View style={modalStyles.sheet}>
@@ -201,7 +262,10 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
               style={modalStyles.button}
               accessibilityRole="button"
               accessibilityLabel="Entendido"
-              onPress={() => setAlertVisible(false)}
+              onPress={() => {
+                stopAlertSound();
+                setAlertVisible(false);
+              }}
             >
               <Text style={modalStyles.buttonText}>ENTENDIDO</Text>
             </Pressable>
