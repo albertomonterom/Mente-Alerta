@@ -7,7 +7,7 @@ const RED = '#C0392B';
 const GREEN = '#2E7D32';
 
 const DURATIONS = [
-  { label: '1 minutos', minutes: 1 },
+  { label: '2 minutos', minutes: 2 },
   { label: '5 minutos', minutes: 5 },
   { label: '10 minutos', minutes: 10 },
 ];
