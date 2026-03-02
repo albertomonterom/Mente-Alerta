@@ -7,7 +7,7 @@ const RED = '#C0392B';
 const GREEN = '#2E7D32';
 
 const DURATIONS = [
-  { label: '2 minutos', minutes: 2 },
+  { label: '1 minutos', minutes: 1 },
   { label: '5 minutos', minutes: 5 },
   { label: '10 minutos', minutes: 10 },
 ];
@@ -19,7 +19,7 @@ function formatTime(seconds: number): string {
 }
 
 export default function WaitScreen() {
-  const { isActive, timeLeft, startWaitMode, stopWaitMode, largerText, highContrast } = useWaitMode();
+  const { isActive, timeLeft, startWaitMode, stopWaitMode, triggerAlert, largerText, highContrast } = useWaitMode();
   const fs = (base: number) => base + (largerText ? 5 : 0);
 
   return (
@@ -73,6 +73,23 @@ export default function WaitScreen() {
           </View>
         </>
       )}
+
+      {/* ── DEV: Test alert modals ─────────────────────────────────── */}
+      <View style={styles.devRow}>
+        <Text style={styles.devLabel}>🛠 DEV</Text>
+        <Pressable
+          style={[styles.devButton, { backgroundColor: '#1B3A6B' }]}
+          onPress={() => triggerAlert('timer')}
+        >
+          <Text style={styles.devButtonText}>Timer</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.devButton, { backgroundColor: '#6A0DAD' }]}
+          onPress={() => triggerAlert('voice')}
+        >
+          <Text style={styles.devButtonText}>Voice</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -187,5 +204,28 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_800ExtraBold',
     textAlign: 'center',
     letterSpacing: 0.8,
+  },
+  /* ── Dev test row ───────────────────────────────────────────────── */
+  devRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 32,
+    paddingHorizontal: 8,
+  },
+  devLabel: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_600SemiBold',
+    color: '#AAAAAA',
+  },
+  devButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  devButtonText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_700Bold',
+    color: '#FFFFFF',
   },
 });

@@ -6,7 +6,7 @@ import React, {
     useRef,
     useState,
 } from 'react';
-import { Alert, Vibration } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, Vibration, View } from 'react-native';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -20,7 +20,7 @@ interface WaitModeContextValue {
   /** Stop countdown and reset state. */
   stopWaitMode: () => void;
   /** Fire the alert immediately. */
-  triggerAlert: () => void;
+  triggerAlert: (type?: 'timer' | 'voice') => void;
   /** Start a one-shot alert after the given number of seconds. */
   scheduleAlertAfter: (seconds: number) => void;
   /** Default duration (minutes) selected in Settings */
@@ -47,6 +47,8 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
   const [defaultDuration, setDefaultDuration] = useState(5);
   const [largerText, setLargerText] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertType, setAlertType] = useState<'timer' | 'voice'>('timer');
 
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scheduledRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -71,13 +73,10 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
 
   // ── triggerAlert ───────────────────────────────────────────────────────────
 
-  const triggerAlert = useCallback(() => {
-    Vibration.vibrate([0, 500, 200, 500]);
-    Alert.alert(
-      '¡Tu turno!',
-      'Es tu momento. Por favor acércate al mostrador.',
-      [{ text: 'Entendido', style: 'default' }],
-    );
+  const triggerAlert = useCallback((type: 'timer' | 'voice' = 'timer') => {
+    Vibration.vibrate([0, 500, 200, 500, 200, 500]);
+    setAlertType(type);
+    setAlertVisible(true);
   }, []);
 
   // ── startWaitMode ──────────────────────────────────────────────────────────
@@ -167,6 +166,48 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
   return (
     <WaitModeContext.Provider value={value}>
       {children}
+
+      <Modal
+        visible={alertVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setAlertVisible(false)}
+      >
+        <View style={modalStyles.overlay}>
+          <View style={modalStyles.sheet}>
+            {/* Icon row */}
+            <View style={modalStyles.iconCircle}>
+              <Text style={modalStyles.iconText}>{alertType === 'voice' ? '🔔' : '⏰'}</Text>
+            </View>
+
+            {/* Heading */}
+            <Text style={modalStyles.heading}>
+              {alertType === 'voice' ? '¡Es tu turno!' : 'Tiempo finalizado'}
+            </Text>
+
+            {/* Body */}
+            <Text style={modalStyles.body}>
+              {alertType === 'voice'
+                ? 'Tu nombre fue detectado.\nPor favor acércate al mostrador.'
+                : 'Han pasado los minutos estimados.\nRevisa si tu turno ya fue llamado.'}
+            </Text>
+
+            {/* Divider */}
+            <View style={modalStyles.divider} />
+
+            {/* CTA */}
+            <Pressable
+              style={modalStyles.button}
+              accessibilityRole="button"
+              accessibilityLabel="Entendido"
+              onPress={() => setAlertVisible(false)}
+            >
+              <Text style={modalStyles.buttonText}>ENTENDIDO</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </WaitModeContext.Provider>
   );
 }
@@ -180,3 +221,81 @@ export function useWaitMode(): WaitModeContextValue {
   }
   return ctx;
 }
+
+// ─── Modal styles ─────────────────────────────────────────────────────────────
+
+const modalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+  },
+  sheet: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    alignItems: 'center',
+    paddingTop: 36,
+    paddingBottom: 28,
+    paddingHorizontal: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 16,
+  },
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FFF3E0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  iconText: {
+    fontSize: 38,
+  },
+  heading: {
+    fontSize: 32,
+    fontFamily: 'Montserrat_800ExtraBold',
+    color: '#C0392B',
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  body: {
+    fontSize: 19,
+    fontFamily: 'Montserrat_400Regular',
+    color: '#333333',
+    textAlign: 'center',
+    lineHeight: 28,
+    marginBottom: 28,
+  },
+  divider: {
+    width: '100%',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#E0E0E0',
+    marginBottom: 24,
+  },
+  button: {
+    width: '100%',
+    minHeight: 64,
+    borderRadius: 16,
+    backgroundColor: '#C0392B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#C0392B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  buttonText: {
+    fontSize: 20,
+    fontFamily: 'Montserrat_800ExtraBold',
+    color: '#FFFFFF',
+    letterSpacing: 1.5,
+  },
+});

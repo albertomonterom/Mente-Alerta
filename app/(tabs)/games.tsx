@@ -38,7 +38,7 @@ const GAMES = [
 
 export default function GamesScreen() {
   const router = useRouter();
-  const { defaultDuration, startWaitMode, largerText, highContrast } = useWaitMode();
+  const { defaultDuration, startWaitMode, isActive, largerText, highContrast } = useWaitMode();
   const fs = (base: number) => base + (largerText ? 5 : 0);
 
   return (
@@ -87,7 +87,7 @@ export default function GamesScreen() {
         accessibilityRole="button"
         accessibilityLabel="Activar Modo Espera"
         onPress={() => {
-          startWaitMode(defaultDuration);
+          if (!isActive) startWaitMode(defaultDuration);
           router.push('/wait');
         }}
       >
