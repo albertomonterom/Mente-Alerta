@@ -76,7 +76,7 @@ export default function WaitScreen() {
 
       {/* ── DEV: Test alert modals ─────────────────────────────────── */}
       <View style={styles.devRow}>
-        <Text style={styles.devLabel}>🛠 DEV</Text>
+        <Text style={styles.devLabel}>DEV</Text>
         <Pressable
           style={[styles.devButton, { backgroundColor: '#1B3A6B' }]}
           onPress={() => triggerAlert('timer')}
