@@ -280,6 +280,7 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
 
 export function useWaitMode(): WaitModeContextValue {
   const ctx = useContext(WaitModeContext);
+  
   if (!ctx) {
     throw new Error('useWaitMode must be used inside a <WaitModeProvider>.');
   }

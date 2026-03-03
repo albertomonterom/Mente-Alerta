@@ -1,6 +1,15 @@
 import { useWaitMode } from '@/context/wait-mode-context';
 import { useRouter } from 'expo-router';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import {
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 const NAVY = '#1B3A6B';
 const GREEN = '#2E7D32';
@@ -36,64 +45,122 @@ const GAMES = [
   },
 ];
 
+const DURATIONS = [
+  { label: '5 minutos', value: 5 },
+  { label: '15 minutos', value: 15 },
+  { label: '20 minutos', value: 20 },
+];
+
 export default function GamesScreen() {
   const router = useRouter();
-  const { defaultDuration, startWaitMode, isActive, largerText, highContrast } = useWaitMode();
+  const { startWaitMode, largerText, highContrast, isActive } = useWaitMode();
   const fs = (base: number) => base + (largerText ? 5 : 0);
 
+  const [selectedGame, setSelectedGame] = useState<string | null>(null);
+  const [showWaitModal, setShowWaitModal] = useState(false);
+  const [showTimeModal, setShowTimeModal] = useState(false);
+
+  const handleGamePress = (gameKey: string) => {
+  setSelectedGame(gameKey);
+    if (isActive) {
+      // modo espera ya activo, ir directo al juego
+      if (gameKey === 'sudoku') router.push('/sudoku');
+      return;
+    }
+    setShowWaitModal(true);
+  };
+
+  const handleConfirmWait = () => {
+    setShowWaitModal(false);
+    setShowTimeModal(true);
+  };
+
+  const handleDeclineWait = () => {
+    setShowWaitModal(false);
+    if (selectedGame === 'sudoku') router.push('/sudoku');
+  };
+
+  const handleSelectDuration = (minutes: number) => {
+    setShowTimeModal(false);
+    startWaitMode(minutes);
+    if (selectedGame === 'sudoku') router.push('/sudoku');
+  };
+
   return (
-    <ScrollView
-      style={[styles.scrollView, highContrast && { backgroundColor: '#FFFFFF' }]}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Title */}
-      <Text style={[styles.title, { fontSize: fs(42), lineHeight: fs(52), color: highContrast ? '#000000' : NAVY }]}>Mente Alerta</Text>
-      <Text style={[styles.subtitle, { fontSize: fs(20), color: highContrast ? '#222222' : '#444444' }]}>¡Elige un juego para empezar!</Text>
-
-      {/* Divider */}
-      <View style={styles.divider} />
-
-      {/* Game grid */}
-      <View style={styles.grid}>
-        {GAMES.map((game) => (
-          <Pressable
-            key={game.key}
-            style={[styles.card, { backgroundColor: game.bg }]}
-            accessibilityRole="button"
-            accessibilityLabel={game.label.replace('\n', ' ')}
-            onPress={() => {
-              /* navigate to game */
-            }}
-          >
-            <Image
-              source={game.image}
-              style={styles.cardImage}
-              resizeMode="contain"
-            />
-            <Text style={[styles.cardLabel, { color: highContrast ? '#000000' : game.labelColor, fontSize: fs(19) }]}>
-              {game.label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
-      {/* Divider */}
-      <View style={styles.divider} />
-
-      {/* Wait mode button */}
-      <Pressable
-        style={styles.button}
-        accessibilityRole="button"
-        accessibilityLabel="Activar Modo Espera"
-        onPress={() => {
-          if (!isActive) startWaitMode(defaultDuration);
-          router.push('/wait');
-        }}
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        style={[styles.scrollView, highContrast && { backgroundColor: '#FFFFFF' }]}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.buttonText, { fontSize: fs(21) }]}>ACTIVAR MODO ESPERA</Text>
-      </Pressable>
-    </ScrollView>
+        <Text style={[styles.title, { fontSize: fs(42), lineHeight: fs(52), color: highContrast ? '#000000' : NAVY }]}>
+          Mente Alerta
+        </Text>
+        <Text style={[styles.subtitle, { fontSize: fs(20), color: highContrast ? '#222222' : '#444444' }]}>
+          ¡Elige un juego para empezar!
+        </Text>
+
+        <View style={styles.divider} />
+
+        <View style={styles.grid}>
+          {GAMES.map((game) => (
+            <Pressable
+              key={game.key}
+              style={[styles.card, { backgroundColor: game.bg }]}
+              accessibilityRole="button"
+              accessibilityLabel={game.label.replace('\n', ' ')}
+              onPress={() => handleGamePress(game.key)}
+            >
+              <Image source={game.image} style={styles.cardImage} resizeMode="contain" />
+              <Text style={[styles.cardLabel, { color: highContrast ? '#000000' : game.labelColor, fontSize: fs(19) }]}>
+                {game.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <View style={styles.divider} />
+      </ScrollView>
+
+      {/* Modal 1: ¿Activar modo espera? */}
+      <Modal visible={showWaitModal} transparent animationType="fade" onRequestClose={() => setShowWaitModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={[styles.modalTitle, { fontSize: fs(28) }]}>¿Modo Espera?</Text>
+            <View style={styles.modalButtons}>
+              <Pressable style={[styles.modalBtn, styles.modalBtnYes]} onPress={handleConfirmWait}>
+                <Text style={[styles.modalBtnText, { fontSize: fs(24) }]}>Sí</Text>
+              </Pressable>
+              <Pressable style={[styles.modalBtn, styles.modalBtnNo]} onPress={handleDeclineWait}>
+                <Text style={[styles.modalBtnText, { fontSize: fs(24) }]}>No</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal 2: ¿Cuánto tiempo? */}
+      <Modal visible={showTimeModal} transparent animationType="fade" onRequestClose={() => setShowTimeModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={[styles.modalTitle, { fontSize: fs(28) }]}>¿Cuánto tiempo?</Text>
+            <View style={styles.timeButtons}>
+              {DURATIONS.map((d) => (
+                <Pressable
+                  key={d.value}
+                  style={styles.timeBtn}
+                  onPress={() => handleSelectDuration(d.value)}
+                  accessibilityRole="button"
+                  accessibilityLabel={d.label}
+                >
+                  <Text style={[styles.timeBtnText, { fontSize: fs(26) }]}>{d.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
@@ -160,26 +227,66 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
   },
-  button: {
-    width: '100%',
-    minHeight: 70,
-    borderRadius: 16,
-    backgroundColor: GREEN,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
+    padding: 24,
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 21,
-    fontFamily: 'Montserrat_800ExtraBold',
-    letterSpacing: 1.2,
+  modalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 36,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  modalTitle: {
+    fontFamily: 'Montserrat_700Bold',
+    color: NAVY,
     textAlign: 'center',
+    marginBottom: 32,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 16,
+    width: '100%',
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 24,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  modalBtnYes: {
+    backgroundColor: GREEN,
+  },
+  modalBtnNo: {
+    backgroundColor: '#9E9E9E',
+  },
+  modalBtnText: {
+    color: '#FFFFFF',
+    fontFamily: 'Montserrat_700Bold',
+  },
+  timeButtons: {
+    width: '100%',
+    gap: 16,
+  },
+  timeBtn: {
+    backgroundColor: NAVY,
+    borderRadius: 14,
+    paddingVertical: 26,
+    alignItems: 'center',
+    width: '100%',
+  },
+  timeBtnText: {
+    color: '#FFFFFF',
+    fontFamily: 'Montserrat_700Bold',
   },
 });
