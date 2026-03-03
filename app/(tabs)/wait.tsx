@@ -7,9 +7,9 @@ const RED = '#C0392B';
 const GREEN = '#2E7D32';
 
 const DURATIONS = [
-  { label: '2 minutos', minutes: 2 },
   { label: '5 minutos', minutes: 5 },
-  { label: '10 minutos', minutes: 10 },
+  { label: '15 minutos', minutes: 15 },
+  { label: '20 minutos', minutes: 20 },
 ];
 
 function formatTime(seconds: number): string {

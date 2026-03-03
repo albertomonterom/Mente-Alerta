@@ -12,32 +12,20 @@ import { Modal, Pressable, StyleSheet, Text, Vibration, View } from 'react-nativ
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface WaitModeContextValue {
-  /** Whether wait mode is currently running */
   isActive: boolean;
-  /** Remaining seconds in the countdown (0 when finished or inactive) */
   timeLeft: number;
-  /** Start countdown. Pass duration in minutes (defaults to 30). */
   startWaitMode: (durationInMinutes?: number) => void;
-  /** Stop countdown and reset state. */
   stopWaitMode: () => void;
-  /** Fire the alert immediately. */
   triggerAlert: (type?: 'timer' | 'voice') => void;
-  /** Start a one-shot alert after the given number of seconds. */
   scheduleAlertAfter: (seconds: number) => void;
-  /** Default duration (minutes) selected in Settings */
   defaultDuration: number;
-  /** Update the default duration */
   setDefaultDuration: (minutes: number) => void;
-  /** Whether larger text mode is enabled */
   largerText: boolean;
   setLargerText: (v: boolean) => void;
-  /** Whether high contrast mode is enabled */
   highContrast: boolean;
   setHighContrast: (v: boolean) => void;
-  /** Whether alert sound is enabled */
   soundEnabled: boolean;
   setSoundEnabled: (v: boolean) => void;
-  /** Whether alert vibration is enabled */
   vibrationEnabled: boolean;
   setVibrationEnabled: (v: boolean) => void;
 }
@@ -62,8 +50,8 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scheduledRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voiceSoundRef = useRef<import('expo-av').Audio.Sound | null>(null);
-  /** True only when the timer reaches 0 on its own — not on manual stop */
   const naturallyExpiredRef = useRef(false);
+  const durationRef = useRef<number>(5); // ← guarda la duración original
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -103,8 +91,7 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
       try {
         await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
         if (type === 'timer') {
-          // Play once — soft notification ding
-          await stopAlertSound(); // clear any previous
+          await stopAlertSound();
           const { sound } = await Audio.Sound.createAsync(
             require('../assets/sounds/alert-timer.mp3'),
             { shouldPlay: true, volume: 0.9 },
@@ -117,17 +104,14 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
             }
           });
         } else {
-          // Loop until dismissed — urgent alarm
-          await stopAlertSound(); // clear any previous
+          await stopAlertSound();
           const { sound } = await Audio.Sound.createAsync(
             require('../assets/sounds/alert-voice.mp3'),
             { shouldPlay: true, volume: 1.0, isLooping: true },
           );
           voiceSoundRef.current = sound;
         }
-      } catch (_) {
-        // Audio unavailable — fail silently
-      }
+      } catch (_) {}
     }
     setAlertType(type);
     setAlertVisible(true);
@@ -137,6 +121,7 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
 
   const startWaitMode = useCallback(
     (durationInMinutes: number = 30) => {
+      durationRef.current = durationInMinutes; // ← guarda la duración
       clearCountdown();
       clearScheduled();
 
@@ -170,6 +155,14 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
     setTimeLeft(0);
   }, [clearCountdown, clearScheduled]);
 
+  // ── snooze ─────────────────────────────────────────────────────────────────
+
+  const snooze = useCallback(() => {
+    stopAlertSound();
+    setAlertVisible(false);
+    startWaitMode(durationRef.current);
+  }, [stopAlertSound, startWaitMode]);
+
   // ── scheduleAlertAfter ─────────────────────────────────────────────────────
 
   const scheduleAlertAfter = useCallback(
@@ -183,7 +176,8 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
     [clearScheduled, triggerAlert],
   );
 
-  // ── Fire alert only when countdown naturally reaches 0 ───────────────────
+  // ── Fire alert when countdown naturally reaches 0 ─────────────────────────
+
   useEffect(() => {
     if (!isActive && naturallyExpiredRef.current) {
       naturallyExpiredRef.current = false;
@@ -237,27 +231,24 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
       >
         <View style={modalStyles.overlay}>
           <View style={modalStyles.sheet}>
-            {/* Icon row */}
+
             <View style={modalStyles.iconCircle}>
               <Text style={modalStyles.iconText}>{alertType === 'voice' ? '🔔' : '⏰'}</Text>
             </View>
 
-            {/* Heading */}
             <Text style={modalStyles.heading}>
               {alertType === 'voice' ? '¡Es tu turno!' : 'Tiempo finalizado'}
             </Text>
 
-            {/* Body */}
             <Text style={modalStyles.body}>
               {alertType === 'voice'
                 ? 'Tu nombre fue detectado.\nPor favor acércate al mostrador.'
                 : 'Han pasado los minutos estimados.\nRevisa si tu turno ya fue llamado.'}
             </Text>
 
-            {/* Divider */}
             <View style={modalStyles.divider} />
 
-            {/* CTA */}
+            {/* Entendido */}
             <Pressable
               style={modalStyles.button}
               accessibilityRole="button"
@@ -269,6 +260,21 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
             >
               <Text style={modalStyles.buttonText}>ENTENDIDO</Text>
             </Pressable>
+
+            {/* Posponer — solo para alerta de timer */}
+            {alertType === 'timer' && (
+              <Pressable
+                style={[modalStyles.button, modalStyles.snoozeButton]}
+                accessibilityRole="button"
+                accessibilityLabel={`Posponer ${durationRef.current} minutos`}
+                onPress={snooze}
+              >
+                <Text style={modalStyles.buttonText}>
+                  POSPONER {durationRef.current} MIN
+                </Text>
+              </Pressable>
+            )}
+
           </View>
         </View>
       </Modal>
@@ -280,7 +286,6 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
 
 export function useWaitMode(): WaitModeContextValue {
   const ctx = useContext(WaitModeContext);
-  
   if (!ctx) {
     throw new Error('useWaitMode must be used inside a <WaitModeProvider>.');
   }
@@ -310,6 +315,7 @@ const modalStyles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 16,
     elevation: 16,
+    gap: 0,
   },
   iconCircle: {
     width: 80,
@@ -356,6 +362,11 @@ const modalStyles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 6,
+  },
+  snoozeButton: {
+    backgroundColor: '#1B3A6B',
+    marginTop: 12,
+    shadowColor: '#1B3A6B',
   },
   buttonText: {
     fontSize: 20,
