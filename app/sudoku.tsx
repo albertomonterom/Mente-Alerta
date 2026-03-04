@@ -1,22 +1,21 @@
+import { useSudoku } from '@/context/sudoku-context';
 import { useWaitMode } from '@/context/wait-mode-context';
+import {
+  hasConflict,
+  isBoardComplete
+} from '@/utils/sudoku-generator';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useSudoku } from '@/context/sudoku-context'; 
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Dimensions,
   Modal,
   Pressable,
-  ScrollView,
+  SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import {
-  Board,
-  generateSudoku,
-  hasConflict,
-  isBoardComplete,
-} from '@/utils/sudoku-generator';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -103,7 +102,7 @@ export default function SudokuScreen() {
   if (!playerBoard.length) return null;
 
   return (
-    <View style={[styles.screen, highContrast && { backgroundColor: '#FFFFFF' }]}>
+    <SafeAreaView style={styles.screen}>
 
       {/* ── Header ── */}
       <View style={styles.header}>
@@ -113,13 +112,13 @@ export default function SudokuScreen() {
           accessibilityRole="button"
           accessibilityLabel="Volver"
         >
-          <Text style={[styles.backBtnText, { fontSize: fs(22) }]}>←</Text>
+          <Ionicons name="arrow-back" size={26} color="#FFFFFF" />
         </Pressable>
         <Text style={[styles.title, { fontSize: fs(26) }]}>Sudoku</Text>
         <View style={{ width: 44 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={[styles.content, highContrast && { backgroundColor: '#FFFFFF' }]}>
 
         {/* ── Board ── */}
         <View style={[styles.board, { width: BOARD_SIZE, height: BOARD_SIZE }]}>
@@ -181,24 +180,26 @@ export default function SudokuScreen() {
         {/* ── Action row ── */}
         <View style={[styles.actionRow, { width: BOARD_SIZE }]}>
           <Pressable
-            style={[styles.actionBtn, { backgroundColor: '#78909C' }]}
+            style={styles.actionBtnErase}
             onPress={() => handleNumberPress(null)}
             accessibilityRole="button"
             accessibilityLabel="Borrar celda"
           >
-            <Text style={[styles.actionBtnText, { fontSize: fs(17) }]}>🗑 Borrar</Text>
+            <Ionicons name="backspace-outline" size={22} color="#FFFFFF" />
+            <Text style={[styles.actionBtnText, { fontSize: fs(17) }]}>Borrar</Text>
           </Pressable>
           <Pressable
-            style={[styles.actionBtn, { backgroundColor: NAVY }]}
+            style={styles.actionBtnNew}
             onPress={newGame}
             accessibilityRole="button"
             accessibilityLabel="Nuevo juego"
           >
-            <Text style={[styles.actionBtnText, { fontSize: fs(17) }]}>🔄 Nuevo</Text>
+            <Ionicons name="refresh" size={22} color="#FFFFFF" />
+            <Text style={[styles.actionBtnText, { fontSize: fs(17) }]}>Nuevo juego</Text>
           </Pressable>
         </View>
 
-      </ScrollView>
+      </View>
 
       {/* ── Win modal ── */}
       <Modal visible={showWin} transparent animationType="fade">
@@ -219,7 +220,7 @@ export default function SudokuScreen() {
         </View>
       </Modal>
 
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -233,34 +234,26 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 52,         // sin espacio extra — el header de Expo se elimina en _layout
-    paddingBottom: 12,
+    paddingVertical: 12,
     backgroundColor: NAVY,
   },
   backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backBtnText: {
-    color: '#FFFFFF',
-    fontFamily: 'Montserrat_700Bold',
+    padding: 4,
+    marginRight: 8,
   },
   title: {
+    flex: 1,
     fontFamily: 'Montserrat_800ExtraBold',
     color: '#FFFFFF',
-    textAlign: 'center',
   },
   content: {
+    flex: 1,
     alignItems: 'center',
-    paddingVertical: 20,
+    justifyContent: 'center',
     paddingHorizontal: 16,
-    gap: 20,
+    paddingBottom: 24,
+    gap: 12,
   },
   board: {
     flexDirection: 'row',
@@ -287,7 +280,7 @@ const styles = StyleSheet.create({
   },
   numBtn: {
     borderRadius: 12,
-    backgroundColor: NAVY,
+    backgroundColor: '#1565C0',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -304,12 +297,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 14,
   },
-  actionBtn: {
+  actionBtnErase: {
     flex: 1,
-    paddingVertical: 16,
-    borderRadius: 14,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#546E7A',
+    borderRadius: 14,
+    paddingVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  actionBtnNew: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: NAVY,
+    borderRadius: 14,
+    paddingVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 4,
   },
   actionBtnText: {
     color: '#FFFFFF',

@@ -2,6 +2,7 @@ import { useWaitMode } from '@/context/wait-mode-context';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  Alert,
   Image,
   Modal,
   Pressable,
@@ -21,6 +22,7 @@ const GAMES = [
     image: require('../../assets/icons/letter-soup.png'),
     bg: '#F2C94C',
     labelColor: '#7A5C00',
+    route: '/word-search' as const,
   },
   {
     key: 'solitario',
@@ -28,6 +30,7 @@ const GAMES = [
     image: require('../../assets/icons/solitaire.png'),
     bg: '#6C5CE7',
     labelColor: '#FFFFFF',
+    route: null,
   },
   {
     key: 'sudoku',
@@ -35,6 +38,7 @@ const GAMES = [
     image: require('../../assets/icons/sudoku.png'),
     bg: '#90CAF9',
     labelColor: '#1565C0',
+    route: '/sudoku' as const,
   },
   {
     key: 'domino',
@@ -42,6 +46,7 @@ const GAMES = [
     image: require('../../assets/icons/domino.png'),
     bg: '#E8D5B7',
     labelColor: '#5D4037',
+    route: null,
   },
 ];
 
@@ -60,11 +65,24 @@ export default function GamesScreen() {
   const [showWaitModal, setShowWaitModal] = useState(false);
   const [showTimeModal, setShowTimeModal] = useState(false);
 
+  // Look up the route for whatever game is currently selected
+  const getRoute = (gameKey: string) =>
+    GAMES.find(g => g.key === gameKey)?.route ?? null;
+
+  const navigateTo = (gameKey: string) => {
+    const route = getRoute(gameKey);
+    if (route) {
+      router.push(route);
+    } else {
+      Alert.alert('Próximamente', 'Este juego estará disponible pronto. ¡Vuelve pronto!');
+    }
+  };
+
   const handleGamePress = (gameKey: string) => {
-  setSelectedGame(gameKey);
+    setSelectedGame(gameKey);
     if (isActive) {
-      // modo espera ya activo, ir directo al juego
-      if (gameKey === 'sudoku') router.push('/sudoku');
+      // Wait mode already active — go straight to the game
+      navigateTo(gameKey);
       return;
     }
     setShowWaitModal(true);
@@ -77,13 +95,13 @@ export default function GamesScreen() {
 
   const handleDeclineWait = () => {
     setShowWaitModal(false);
-    if (selectedGame === 'sudoku') router.push('/sudoku');
+    if (selectedGame) navigateTo(selectedGame);
   };
 
   const handleSelectDuration = (minutes: number) => {
     setShowTimeModal(false);
     startWaitMode(minutes);
-    if (selectedGame === 'sudoku') router.push('/sudoku');
+    if (selectedGame) navigateTo(selectedGame);
   };
 
   return (
@@ -170,10 +188,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
   },
   scrollContent: {
+    flexGrow: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 48,
+    paddingVertical: 32,
   },
   title: {
     fontSize: 42,

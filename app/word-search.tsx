@@ -3,15 +3,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Animated,
-    FlatList,
-    Modal,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  Animated,
+  FlatList,
+  Modal,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from 'react-native';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -294,7 +294,7 @@ export default function WordSearchScreen() {
           onPress={() => router.back()}
           accessibilityLabel="Volver"
         >
-          <Ionicons name="arrow-back" size={26} color={NAVY} />
+          <Ionicons name="arrow-back" size={26} color="#FFFFFF" />
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>Sopa de Letras</Text>
@@ -320,8 +320,6 @@ export default function WordSearchScreen() {
           </View>
         </View>
       </View>
-
-      <View style={styles.headerDivider} />
 
       {/* ── Grid ────────────────────────────────────────────────────── */}
       <View style={[styles.gridWrapper, { paddingHorizontal: SIDE_PAD }]}>
@@ -493,6 +491,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    backgroundColor: NAVY,
   },
   backBtn: {
     padding: 4,
@@ -502,7 +501,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 26,
     fontFamily: 'Montserrat_700Bold',
-    color: NAVY,
+    color: '#FFFFFF',
   },
   headerActions: {
     flexDirection: 'row',
@@ -524,7 +523,7 @@ const styles = StyleSheet.create({
     color: '#5C4000',
   },
   hintsChip: {
-    backgroundColor: NAVY,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 20,
@@ -543,6 +542,7 @@ const styles = StyleSheet.create({
 
   /* Grid */
   gridWrapper: {
+    marginTop: 12,
     marginBottom: 8,
   },
   gridBorder: {

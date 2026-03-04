@@ -6,22 +6,19 @@ import {
     Switch,
     Text,
     TextInput,
-    TouchableOpacity,
     View,
 } from 'react-native';
 
 const NAVY = '#1B3A6B';
 const GREEN = '#2E7D32';
-const DURATIONS = [2, 5, 10];
 
 export default function SettingsScreen() {
   // ── Perfil ─────────────────────────────────────────────────────────────────
   const [nameForAlert, setNameForAlert] = useState('');
 
   // ── Tipo de alerta ─────────────────────────────────────────────────────────
-  // ── Tiempo predeterminado + Accesibilidad (from global context) ──────────
+  // ── Accesibilidad (from global context) ──────────────────────────────────
   const {
-    defaultDuration, setDefaultDuration,
     largerText, setLargerText,
     highContrast, setHighContrast,
     soundEnabled, setSoundEnabled,
@@ -74,30 +71,6 @@ export default function SettingsScreen() {
             thumbColor="#FFFFFF"
             accessibilityLabel="Activar vibración"
           />
-        </View>
-      </View>
-
-      {/* ── Tiempo predeterminado ──────────────────────────────────────── */}
-      <Text style={[styles.sectionTitle, { fontSize: fs(20), color: highContrast ? '#000000' : NAVY }]}>Tiempo predeterminado</Text>
-      <View style={[styles.card, highContrast && { borderColor: '#888888', borderWidth: 2 }]}>
-        <View style={styles.durationRow}>
-          {DURATIONS.map((min) => {
-            const selected = defaultDuration === min;
-            return (
-              <TouchableOpacity
-                key={min}
-                style={[styles.durationBtn, selected && styles.durationBtnSelected]}
-                onPress={() => setDefaultDuration(min)}
-                accessibilityRole="button"
-                accessibilityLabel={`${min} minutos`}
-                accessibilityState={{ selected }}
-              >
-                <Text style={[styles.durationBtnText, selected && styles.durationBtnTextSelected]}>
-                  {min} min
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
         </View>
       </View>
 
