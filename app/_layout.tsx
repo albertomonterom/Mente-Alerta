@@ -1,9 +1,13 @@
+import WaitModeBanner from '@/components/WaitModeBanner';
+import { SudokuProvider } from '@/context/sudoku-context';
+import { WaitModeProvider } from '@/context/wait-mode-context';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
-  Montserrat_400Regular,
-  Montserrat_600SemiBold,
-  Montserrat_700Bold,
-  Montserrat_800ExtraBold,
-  useFonts,
+    Montserrat_400Regular,
+    Montserrat_600SemiBold,
+    Montserrat_700Bold,
+    Montserrat_800ExtraBold,
+    useFonts,
 } from '@expo-google-fonts/montserrat';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
@@ -11,10 +15,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-import WaitModeBanner from '@/components/WaitModeBanner';
-import { WaitModeProvider } from '@/context/wait-mode-context';
-import { SudokuProvider } from '@/context/sudoku-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -50,6 +50,7 @@ export default function RootLayout() {
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="sudoku" options={{ headerShown: false }} />
+          <Stack.Screen name="domino" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
         <WaitModeBanner />

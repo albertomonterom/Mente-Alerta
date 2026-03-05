@@ -46,7 +46,7 @@ const GAMES = [
     image: require('../../assets/icons/domino.png'),
     bg: '#E8D5B7',
     labelColor: '#5D4037',
-    route: null,
+    route: '/domino' as const,
   },
 ];
 
