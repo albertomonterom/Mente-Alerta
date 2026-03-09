@@ -30,7 +30,7 @@ const GAMES = [
     image: require('../../assets/icons/solitaire.png'),
     bg: '#6C5CE7',
     labelColor: '#FFFFFF',
-    route: null,
+    route: '/solitario' as const,
   },
   {
     key: 'sudoku',
@@ -111,10 +111,10 @@ export default function GamesScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.title, { fontSize: fs(42), lineHeight: fs(52), color: highContrast ? '#000000' : NAVY }]}>
+        <Text style={[styles.title, { fontSize: fs(50), lineHeight: fs(60), color: highContrast ? '#000000' : NAVY }]}>
           Mente Alerta
         </Text>
-        <Text style={[styles.subtitle, { fontSize: fs(20), color: highContrast ? '#222222' : '#444444' }]}>
+        <Text style={[styles.subtitle, { fontSize: fs(24), color: highContrast ? '#222222' : '#444444' }]}>
           ¡Elige un juego para empezar!
         </Text>
 
@@ -130,7 +130,7 @@ export default function GamesScreen() {
               onPress={() => handleGamePress(game.key)}
             >
               <Image source={game.image} style={styles.cardImage} resizeMode="contain" />
-              <Text style={[styles.cardLabel, { color: highContrast ? '#000000' : game.labelColor, fontSize: fs(19) }]}>
+              <Text style={[styles.cardLabel, { color: highContrast ? '#000000' : game.labelColor, fontSize: fs(22) }]}>
                 {game.label}
               </Text>
             </Pressable>
@@ -144,13 +144,13 @@ export default function GamesScreen() {
       <Modal visible={showWaitModal} transparent animationType="fade" onRequestClose={() => setShowWaitModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <Text style={[styles.modalTitle, { fontSize: fs(28) }]}>¿Modo Espera?</Text>
+            <Text style={[styles.modalTitle, { fontSize: fs(34) }]}>¿Modo Espera?</Text>
             <View style={styles.modalButtons}>
               <Pressable style={[styles.modalBtn, styles.modalBtnYes]} onPress={handleConfirmWait}>
-                <Text style={[styles.modalBtnText, { fontSize: fs(24) }]}>Sí</Text>
+                <Text style={[styles.modalBtnText, { fontSize: fs(28) }]}>Sí</Text>
               </Pressable>
               <Pressable style={[styles.modalBtn, styles.modalBtnNo]} onPress={handleDeclineWait}>
-                <Text style={[styles.modalBtnText, { fontSize: fs(24) }]}>No</Text>
+                <Text style={[styles.modalBtnText, { fontSize: fs(28) }]}>No</Text>
               </Pressable>
             </View>
           </View>
@@ -161,7 +161,7 @@ export default function GamesScreen() {
       <Modal visible={showTimeModal} transparent animationType="fade" onRequestClose={() => setShowTimeModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <Text style={[styles.modalTitle, { fontSize: fs(28) }]}>¿Cuánto tiempo?</Text>
+            <Text style={[styles.modalTitle, { fontSize: fs(34) }]}>¿Cuánto tiempo?</Text>
             <View style={styles.timeButtons}>
               {DURATIONS.map((d) => (
                 <Pressable
@@ -171,7 +171,7 @@ export default function GamesScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={d.label}
                 >
-                  <Text style={[styles.timeBtnText, { fontSize: fs(26) }]}>{d.label}</Text>
+                  <Text style={[styles.timeBtnText, { fontSize: fs(30) }]}>{d.label}</Text>
                 </Pressable>
               ))}
             </View>
@@ -195,19 +195,19 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
   },
   title: {
-    fontSize: 42,
+    fontSize: 50,
     fontFamily: 'Montserrat_700Bold',
     color: NAVY,
     textAlign: 'center',
-    lineHeight: 52,
+    lineHeight: 60,
     marginBottom: 10,
   },
   subtitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontFamily: 'Montserrat_400Regular',
     color: '#444444',
     textAlign: 'center',
-    lineHeight: 28,
+    lineHeight: 32,
   },
   divider: {
     width: '85%',
@@ -241,10 +241,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   cardLabel: {
-    fontSize: 19,
+    fontSize: 22,
     fontFamily: 'Montserrat_700Bold',
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 28,
   },
   modalOverlay: {
     flex: 1,

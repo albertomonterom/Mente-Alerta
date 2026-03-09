@@ -1,11 +1,16 @@
+import {
+  startVoiceDetection,
+  stopVoiceDetection
+} from '@/services/voiceDetectionService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
 import React, {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useRef,
-    useState,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
 } from 'react';
 import { Modal, Pressable, StyleSheet, Text, Vibration, View } from 'react-native';
 
@@ -141,8 +146,28 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
           return prev - 1;
         });
       }, 1000);
+
+      // ── Start voice detection ─────────────────────────────────────────────
+      AsyncStorage.getItem('userName').then(storedName => {
+        const name = storedName?.trim() ?? '';
+        if (name.length > 0) {
+          startVoiceDetection({
+            userName: name,
+            onNameDetected: () => {
+              // Voice service already called stopVoiceDetection() before this cb.
+              // Still need to fully stop the wait timer here.
+              naturallyExpiredRef.current = false;
+              clearCountdown();
+              clearScheduled();
+              setIsActive(false);
+              setTimeLeft(0);
+              triggerAlert('voice');
+            },
+          });
+        }
+      });
     },
-    [clearCountdown, clearScheduled],
+    [clearCountdown, clearScheduled, triggerAlert],
   );
 
   // ── stopWaitMode ───────────────────────────────────────────────────────────
@@ -153,6 +178,7 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
     clearScheduled();
     setIsActive(false);
     setTimeLeft(0);
+    stopVoiceDetection();
   }, [clearCountdown, clearScheduled]);
 
   // ── snooze ─────────────────────────────────────────────────────────────────
@@ -181,6 +207,7 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isActive && naturallyExpiredRef.current) {
       naturallyExpiredRef.current = false;
+      stopVoiceDetection(); // timer expired — stop listening before alert fires
       triggerAlert();
     }
   }, [isActive, triggerAlert]);
@@ -256,6 +283,12 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
               onPress={() => {
                 stopAlertSound();
                 setAlertVisible(false);
+                // Guarantee wait mode is fully stopped regardless of alert type
+                clearCountdown();
+                clearScheduled();
+                stopVoiceDetection();
+                setIsActive(false);
+                setTimeLeft(0);
               }}
             >
               <Text style={modalStyles.buttonText}>ENTENDIDO</Text>

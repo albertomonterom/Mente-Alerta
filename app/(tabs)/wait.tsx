@@ -27,16 +27,16 @@ export default function WaitScreen() {
       {isActive ? (
         /* ── Active state ─────────────────────────────────── */
         <>
-          <Text style={[styles.pageTitle, { fontSize: fs(30), color: highContrast ? '#000000' : NAVY }]}>Modo Espera Activado</Text>
+          <Text style={[styles.pageTitle, { fontSize: fs(36), color: highContrast ? '#000000' : NAVY }]}>Modo Espera Activado</Text>
 
           <View style={[styles.card, highContrast && { borderColor: '#555555', borderWidth: 2 }]}>
-            <Text style={[styles.hint, { fontSize: fs(19), color: highContrast ? '#222222' : '#555555' }]}>Recuerda estar atento a tu turno</Text>
+            <Text style={[styles.hint, { fontSize: fs(22), color: highContrast ? '#222222' : '#555555' }]}>Recuerda estar atento a tu turno</Text>
 
             <View style={styles.timerBox}>
-              <Text style={[styles.timerText, { fontSize: fs(56) }]}>{formatTime(timeLeft)}</Text>
+              <Text style={[styles.timerText, { fontSize: fs(64) }]}>{formatTime(timeLeft)}</Text>
             </View>
 
-            <Text style={[styles.subHint, { fontSize: fs(17), color: highContrast ? '#333333' : '#777777' }]}>Tiempo restante estimado...</Text>
+            <Text style={[styles.subHint, { fontSize: fs(20), color: highContrast ? '#333333' : '#777777' }]}>Tiempo restante estimado...</Text>
 
             <View style={styles.divider} />
 
@@ -46,15 +46,15 @@ export default function WaitScreen() {
               accessibilityLabel="Parar alerta"
               onPress={stopWaitMode}
             >
-              <Text style={[styles.buttonStopText, { fontSize: fs(17) }]}>PARAR ALERTA</Text>
+              <Text style={[styles.buttonStopText, { fontSize: fs(20) }]}>PARAR ALERTA</Text>
             </Pressable>
           </View>
         </>
       ) : (
         /* ── Idle state ───────────────────────────────────── */
         <>
-          <Text style={[styles.pageTitle, { fontSize: fs(30), color: highContrast ? '#000000' : NAVY }]}>Modo Espera</Text>
-          <Text style={[styles.subtitle, { fontSize: fs(19), color: highContrast ? '#222222' : '#555555' }]}>
+          <Text style={[styles.pageTitle, { fontSize: fs(36), color: highContrast ? '#000000' : NAVY }]}>Modo Espera</Text>
+          <Text style={[styles.subtitle, { fontSize: fs(22), color: highContrast ? '#222222' : '#555555' }]}>
             Selecciona en cuánto tiempo{'\n'}deseas ser alertado.
           </Text>
 
@@ -67,7 +67,7 @@ export default function WaitScreen() {
                 accessibilityLabel={`Iniciar ${label}`}
                 onPress={() => startWaitMode(minutes)}
               >
-                <Text style={[styles.durationText, { fontSize: fs(22) }]}>{label}</Text>
+                <Text style={[styles.durationText, { fontSize: fs(26) }]}>{label}</Text>
               </Pressable>
             ))}
           </View>
@@ -104,19 +104,19 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
   },
   pageTitle: {
-    fontSize: 30,
+    fontSize: 36,
     fontFamily: 'Montserrat_700Bold',
     color: NAVY,
     textAlign: 'center',
-    lineHeight: 40,
+    lineHeight: 46,
     marginBottom: 12,
   },
   subtitle: {
-    fontSize: 19,
+    fontSize: 22,
     fontFamily: 'Montserrat_400Regular',
     color: '#555555',
     textAlign: 'center',
-    lineHeight: 28,
+    lineHeight: 32,
     marginBottom: 28,
   },
   card: {
@@ -151,12 +151,12 @@ const styles = StyleSheet.create({
   },
   durationText: {
     color: '#FFFFFF',
-    fontSize: 22,
+    fontSize: 26,
     fontFamily: 'Montserrat_700Bold',
   },
   /* Active timer */
   hint: {
-    fontSize: 19,
+    fontSize: 22,
     fontFamily: 'Montserrat_400Regular',
     color: '#555555',
     textAlign: 'center',
@@ -168,17 +168,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 36,
   },
   timerText: {
-    fontSize: 56,
+    fontSize: 64,
     fontFamily: 'Montserrat_800ExtraBold',
     color: '#FFFFFF',
     letterSpacing: 4,
   },
   subHint: {
-    fontSize: 17,
+    fontSize: 20,
     fontFamily: 'Montserrat_400Regular',
     color: '#777777',
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 28,
   },
   divider: {
     width: '100%',
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
   },
   buttonStopText: {
     color: '#FFFFFF',
-    fontSize: 17,
+    fontSize: 20,
     fontFamily: 'Montserrat_800ExtraBold',
     textAlign: 'center',
     letterSpacing: 0.8,

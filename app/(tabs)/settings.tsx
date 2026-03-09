@@ -1,11 +1,15 @@
 import { useWaitMode } from '@/context/wait-mode-context';
-import { useState } from 'react';
+import { updateUserName } from '@/services/voiceDetectionService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
     ScrollView,
     StyleSheet,
     Switch,
     Text,
     TextInput,
+    TouchableOpacity,
     View,
 } from 'react-native';
 
@@ -14,7 +18,28 @@ const GREEN = '#2E7D32';
 
 export default function SettingsScreen() {
   // ── Perfil ─────────────────────────────────────────────────────────────────
-  const [nameForAlert, setNameForAlert] = useState('');
+  const [userName, setUserName] = useState('');
+  const [nameSaved, setNameSaved] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem('userName').then(val => {
+      if (val) setUserName(val);
+    });
+  }, []);
+
+  async function saveUserName() {
+    const trimmed = userName.trim();
+    await AsyncStorage.setItem('userName', trimmed);
+    updateUserName(trimmed); // keep voice detection in sync
+    setNameSaved(true);
+    setTimeout(() => setNameSaved(false), 2000);
+  }
+
+  async function resetOnboarding() {
+    await AsyncStorage.removeItem('hasCompletedOnboarding');
+    await AsyncStorage.removeItem('userName');
+    router.replace('/onboarding');
+  }
 
   // ── Tipo de alerta ─────────────────────────────────────────────────────────
   // ── Accesibilidad (from global context) ──────────────────────────────────
@@ -33,26 +58,34 @@ export default function SettingsScreen() {
       showsVerticalScrollIndicator={false}
     >
       {/* ── Perfil ─────────────────────────────────────────────────────── */}
-      <Text style={[styles.sectionTitle, { fontSize: fs(20), color: highContrast ? '#000000' : NAVY }]}>Perfil</Text>
+      <Text style={[styles.sectionTitle, { fontSize: fs(24), color: highContrast ? '#000000' : NAVY }]}>Perfil</Text>
       <View style={[styles.card, highContrast && { borderColor: '#888888', borderWidth: 2 }]}>
-        <Text style={[styles.label, { fontSize: fs(18), color: highContrast ? '#000000' : '#333333' }]}>Nombre para alerta</Text>
+        <Text style={[styles.label, { fontSize: fs(22), color: highContrast ? '#000000' : '#333333' }]}>Tu nombre</Text>
         <TextInput
           style={styles.input}
-          value={nameForAlert}
-          onChangeText={setNameForAlert}
+          value={userName}
+          onChangeText={v => { setUserName(v); setNameSaved(false); }}
           placeholder="Tu nombre"
           placeholderTextColor="#AAAAAA"
           autoCorrect={false}
           returnKeyType="done"
-          accessibilityLabel="Nombre para alerta"
+          onSubmitEditing={saveUserName}
+          accessibilityLabel="Tu nombre"
         />
+        <TouchableOpacity
+          style={[styles.saveBtn, nameSaved && styles.saveBtnDone]}
+          onPress={saveUserName}
+          accessibilityLabel="Guardar nombre"
+        >
+          <Text style={styles.saveBtnText}>{nameSaved ? '✓ Guardado' : 'Guardar'}</Text>
+        </TouchableOpacity>
       </View>
 
       {/* ── Tipo de alerta ─────────────────────────────────────────────── */}
-      <Text style={[styles.sectionTitle, { fontSize: fs(20), color: highContrast ? '#000000' : NAVY }]}>Tipo de alerta</Text>
+      <Text style={[styles.sectionTitle, { fontSize: fs(24), color: highContrast ? '#000000' : NAVY }]}>Tipo de alerta</Text>
       <View style={[styles.card, highContrast && { borderColor: '#888888', borderWidth: 2 }]}>
         <View style={styles.row}>
-          <Text style={[styles.rowLabel, { fontSize: fs(19), color: highContrast ? '#000000' : '#222222' }]}>Activar sonido</Text>
+          <Text style={[styles.rowLabel, { fontSize: fs(22), color: highContrast ? '#000000' : '#222222' }]}>Activar sonido</Text>
           <Switch
             value={soundEnabled}
             onValueChange={setSoundEnabled}
@@ -63,7 +96,7 @@ export default function SettingsScreen() {
         </View>
         <View style={styles.separator} />
         <View style={styles.row}>
-          <Text style={[styles.rowLabel, { fontSize: fs(19), color: highContrast ? '#000000' : '#222222' }]}>Activar vibración</Text>
+          <Text style={[styles.rowLabel, { fontSize: fs(22), color: highContrast ? '#000000' : '#222222' }]}>Activar vibración</Text>
           <Switch
             value={vibrationEnabled}
             onValueChange={setVibrationEnabled}
@@ -75,10 +108,10 @@ export default function SettingsScreen() {
       </View>
 
       {/* ── Accesibilidad ──────────────────────────────────────────────── */}
-      <Text style={[styles.sectionTitle, { fontSize: fs(20), color: highContrast ? '#000000' : NAVY }]}>Accesibilidad</Text>
+      <Text style={[styles.sectionTitle, { fontSize: fs(24), color: highContrast ? '#000000' : NAVY }]}>Accesibilidad</Text>
       <View style={[styles.card, highContrast && { borderColor: '#888888', borderWidth: 2 }]}>
         <View style={styles.row}>
-          <Text style={[styles.rowLabel, { fontSize: fs(19), color: highContrast ? '#000000' : '#222222' }]}>Texto más grande</Text>
+          <Text style={[styles.rowLabel, { fontSize: fs(22), color: highContrast ? '#000000' : '#222222' }]}>Texto más grande</Text>
           <Switch
             value={largerText}
             onValueChange={setLargerText}
@@ -89,7 +122,7 @@ export default function SettingsScreen() {
         </View>
         <View style={styles.separator} />
         <View style={styles.row}>
-          <Text style={[styles.rowLabel, { fontSize: fs(19), color: highContrast ? '#000000' : '#222222' }]}>Alto contraste</Text>
+          <Text style={[styles.rowLabel, { fontSize: fs(22), color: highContrast ? '#000000' : '#222222' }]}>Alto contraste</Text>
           <Switch
             value={highContrast}
             onValueChange={setHighContrast}
@@ -98,6 +131,18 @@ export default function SettingsScreen() {
             accessibilityLabel="Alto contraste"
           />
         </View>
+      </View>
+
+      {/* ── Avanzado ───────────────────────────────────────────────────── */}
+      <Text style={[styles.sectionTitle, { fontSize: fs(24), color: highContrast ? '#000000' : NAVY }]}>Avanzado</Text>
+      <View style={[styles.card, highContrast && { borderColor: '#888888', borderWidth: 2 }]}>
+        <TouchableOpacity
+          style={styles.resetBtn}
+          onPress={resetOnboarding}
+          accessibilityLabel="Ver introducción de nuevo"
+        >
+          <Text style={styles.resetBtnText}>Ver introducción de nuevo</Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -114,7 +159,7 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontFamily: 'Montserrat_700Bold',
     color: NAVY,
     marginBottom: 10,
@@ -134,14 +179,14 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   label: {
-    fontSize: 18,
+    fontSize: 22,
     fontFamily: 'Montserrat_600SemiBold',
     color: '#333333',
     marginTop: 12,
     marginBottom: 8,
   },
   input: {
-    fontSize: 19,
+    fontSize: 23,
     fontFamily: 'Montserrat_400Regular',
     color: '#111111',
     borderWidth: 1.5,
@@ -159,7 +204,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   rowLabel: {
-    fontSize: 19,
+    fontSize: 22,
     fontFamily: 'Montserrat_400Regular',
     color: '#222222',
     flex: 1,
@@ -196,5 +241,29 @@ const styles = StyleSheet.create({
   },
   durationBtnTextSelected: {
     color: '#FFFFFF',
+  },
+  saveBtn: {
+    backgroundColor: NAVY,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  saveBtnDone: {
+    backgroundColor: GREEN,
+  },
+  saveBtnText: {
+    fontSize: 22,
+    fontFamily: 'Montserrat_700Bold',
+    color: '#FFFFFF',
+  },
+  resetBtn: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  resetBtnText: {
+    fontSize: 21,
+    fontFamily: 'Montserrat_600SemiBold',
+    color: '#C0392B',
   },
 });
