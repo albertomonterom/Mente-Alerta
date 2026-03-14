@@ -431,7 +431,7 @@ export default function DominoScreen() {
               <DominoTile
                 key={i}
                 tile={tile}
-                size={44}
+                size={58}
                 horizontal={false}
                 highlight={cpuLastTile !== null && tile[0] === cpuLastTile[0] && tile[1] === cpuLastTile[1]}
               />
@@ -466,7 +466,7 @@ export default function DominoScreen() {
             <DominoTile
               key={i}
               tile={tile}
-              size={52}
+              size={68}
               selected={selected === i}
               disabled={!canPlay(chain, tile)}
               onPress={() => handleTileSelect(i)}

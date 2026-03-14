@@ -1,7 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { type EventSubscription } from 'expo-modules-core';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import {
+    ExpoSpeechRecognitionModule,
+    type ExpoSpeechRecognitionResultEvent,
+} from 'expo-speech-recognition';
+import { useEffect, useRef, useState } from 'react';
 import {
     KeyboardAvoidingView,
     Platform,
@@ -89,6 +94,109 @@ function StepWelcome() {
 
 // ── Step 1: Name input ────────────────────────────────────────────────────────
 function StepName({ name, setName }: { name: string; setName: (v: string) => void }) {
+  const [isListening, setIsListening] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+
+  const resultSubscriptionRef = useRef<EventSubscription | null>(null);
+  const endSubscriptionRef = useRef<EventSubscription | null>(null);
+  const errorSubscriptionRef = useRef<EventSubscription | null>(null);
+
+  function clearListeners() {
+    resultSubscriptionRef.current?.remove();
+    endSubscriptionRef.current?.remove();
+    errorSubscriptionRef.current?.remove();
+    resultSubscriptionRef.current = null;
+    endSubscriptionRef.current = null;
+    errorSubscriptionRef.current = null;
+  }
+
+  function stopVoiceInput() {
+    setIsListening(false);
+    clearListeners();
+    try {
+      ExpoSpeechRecognitionModule.stop();
+    } catch {
+      // Ignore stop errors when the recognizer is already inactive.
+    }
+  }
+
+  async function startVoiceInput() {
+    setVoiceError(null);
+
+    if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+      setVoiceError('El reconocimiento de voz no esta disponible en este dispositivo.');
+      return;
+    }
+
+    let permissions = await ExpoSpeechRecognitionModule.getPermissionsAsync();
+    if (!permissions.granted) {
+      permissions = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    }
+
+    if (!permissions.granted) {
+      setVoiceError('Necesitamos permiso de microfono para capturar tu nombre por voz.');
+      return;
+    }
+
+    clearListeners();
+
+    resultSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener(
+      'result',
+      (event: ExpoSpeechRecognitionResultEvent) => {
+        const transcript = event.results
+          .map(result => result.transcript)
+          .join(' ')
+          .trim();
+
+        if (transcript.length > 0) {
+          setName(transcript);
+        }
+
+        if (event.isFinal) {
+          stopVoiceInput();
+        }
+      },
+    );
+
+    endSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener('end', () => {
+      setIsListening(false);
+      clearListeners();
+    });
+
+    errorSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener('error', () => {
+      setVoiceError('No pudimos reconocer tu voz. Intentalo de nuevo.');
+      setIsListening(false);
+      clearListeners();
+    });
+
+    try {
+      ExpoSpeechRecognitionModule.start({
+        lang: 'es-MX',
+        interimResults: true,
+        continuous: false,
+      });
+      setIsListening(true);
+    } catch {
+      setVoiceError('No se pudo iniciar el reconocimiento de voz.');
+      clearListeners();
+      setIsListening(false);
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      stopVoiceInput();
+    };
+  }, []);
+
+  function handleVoiceButtonPress() {
+    if (isListening) {
+      stopVoiceInput();
+      return;
+    }
+    startVoiceInput();
+  }
+
   return (
     <View style={styles.stepContainer}>
       <View style={styles.iconCircle}>
@@ -110,6 +218,27 @@ function StepName({ name, setName }: { name: string; setName: (v: string) => voi
         maxLength={40}
         accessibilityLabel="Escribe tu nombre"
       />
+
+      <Pressable
+        style={[styles.voiceBtn, isListening && styles.voiceBtnActive]}
+        onPress={handleVoiceButtonPress}
+        accessibilityLabel={isListening ? 'Detener reconocimiento de voz' : 'Ingresar nombre por voz'}
+      >
+        <Ionicons
+          name={isListening ? 'mic' : 'mic-outline'}
+          size={22}
+          color={isListening ? '#FFFFFF' : NAVY}
+        />
+        <Text style={[styles.voiceBtnText, isListening && styles.voiceBtnTextActive]}>
+          {isListening ? 'Escuchando...' : 'Usar voz'}
+        </Text>
+      </Pressable>
+
+      <Text style={styles.voiceHint}>
+        Tambien puedes escribir tu nombre manualmente en el campo de arriba.
+      </Text>
+
+      {voiceError ? <Text style={styles.voiceError}>{voiceError}</Text> : null}
     </View>
   );
 }
@@ -192,6 +321,46 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     backgroundColor: '#FFFFFF',
     textAlign: 'center',
+  },
+  voiceBtn: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: NAVY,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: '#FFFFFF',
+    gap: 8,
+  },
+  voiceBtnActive: {
+    backgroundColor: NAVY,
+  },
+  voiceBtnText: {
+    fontSize: 20,
+    fontFamily: 'Montserrat_700Bold',
+    color: NAVY,
+  },
+  voiceBtnTextActive: {
+    color: '#FFFFFF',
+  },
+  voiceHint: {
+    marginTop: 10,
+    fontSize: 16,
+    fontFamily: 'Montserrat_400Regular',
+    color: '#555555',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  voiceError: {
+    marginTop: 8,
+    fontSize: 15,
+    fontFamily: 'Montserrat_600SemiBold',
+    color: '#B3261E',
+    textAlign: 'center',
+    lineHeight: 22,
   },
   howItem: {
     flexDirection: 'row',

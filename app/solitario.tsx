@@ -414,8 +414,8 @@ export default function SolitarioScreen() {
   };
 
   // Card dimensions — responsive to screen
-  const CARD_W = 46;
-  const OVERLAP = 22; // vertical overlap between stacked tableau cards
+  const CARD_W = 50;
+  const OVERLAP = 26; // vertical overlap between stacked tableau cards
 
   const foundationSuits: Suit[] = ['♠', '♣', '♥', '♦'];
 
@@ -485,7 +485,7 @@ export default function SolitarioScreen() {
               ? Math.round(CARD_W * 1.45) + 8
               : Math.round(CARD_W * 1.45) + (pile.length - 1) * OVERLAP + 8;
             return (
-              <View key={col} style={[styles.tableauCol, { height: colHeight, width: CARD_W + 4 }, hintTargetKey === `t${col}` && styles.hintTargetCol]}>
+              <View key={col} style={[styles.tableauCol, { height: colHeight, width: CARD_W + 2 }, hintTargetKey === `t${col}` && styles.hintTargetCol]}>
                 {pile.length === 0
                   ? <Pressable onPress={() => {
                       if (selection) resolveMove({ zone: 'tableau', col });
@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tableauContent: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     paddingTop: 10,
     paddingBottom: 12,
   },
