@@ -1,17 +1,23 @@
 import { generateWordSearch } from '@/utils/word-search-generator';
 import { Ionicons } from '@expo/vector-icons';
+import { type EventSubscription } from 'expo-modules-core';
 import { Stack, useRouter } from 'expo-router';
+import {
+    ExpoSpeechRecognitionModule,
+    type ExpoSpeechRecognitionResultEvent,
+} from 'expo-speech-recognition';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
-  FlatList,
-  Modal,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
+    Alert,
+    Animated,
+    FlatList,
+    Modal,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
 } from 'react-native';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -92,10 +98,14 @@ export default function WordSearchScreen() {
   const [hints,          setHints]          = useState(3);
   const [hintCells,      setHintCells]      = useState<Set<string>>(new Set());
   const [showNewModal,   setShowNewModal]   = useState(false);
+  const [isVoiceListening, setIsVoiceListening] = useState(false);
 
   const invalidFlashRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const foundFlashRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const winCardAnim     = useRef(new Animated.Value(0)).current;
+  const resultSubscriptionRef = useRef<EventSubscription | null>(null);
+  const endSubscriptionRef = useRef<EventSubscription | null>(null);
+  const errorSubscriptionRef = useRef<EventSubscription | null>(null);
 
   // True once every placed word has been found
   const isGameComplete =
@@ -154,6 +164,145 @@ export default function WordSearchScreen() {
     setHintCells(prev => new Set([...prev, pick]));
     setHints(h => h - 1);
   }, [hints, puzzle.placedWords, foundWords, hintCells]);
+
+  const clearVoiceListeners = useCallback(() => {
+    resultSubscriptionRef.current?.remove();
+    endSubscriptionRef.current?.remove();
+    errorSubscriptionRef.current?.remove();
+    resultSubscriptionRef.current = null;
+    endSubscriptionRef.current = null;
+    errorSubscriptionRef.current = null;
+  }, []);
+
+  const stopVoiceCommands = useCallback(() => {
+    setIsVoiceListening(false);
+    clearVoiceListeners();
+    try {
+      ExpoSpeechRecognitionModule.stop();
+    } catch {
+      // Ignore when recognizer is already inactive.
+    }
+  }, [clearVoiceListeners]);
+
+  const getVoiceCommand = useCallback((transcript: string) => {
+    const normalized = transcript
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    if (normalized.includes('nuevo juego') || normalized.includes('nueva partida') || normalized.includes('reiniciar')) {
+      return 'new-game' as const;
+    }
+    if (normalized.includes('pista') || normalized.includes('ayuda')) {
+      return 'hint' as const;
+    }
+    if (normalized.includes('reanudar') || normalized.includes('continuar')) {
+      return 'resume' as const;
+    }
+    if (normalized.includes('pausa') || normalized.includes('pausar')) {
+      return 'pause' as const;
+    }
+    if (normalized.includes('regresar') || normalized.includes('volver') || normalized.includes('inicio')) {
+      return 'go-home' as const;
+    }
+    return null;
+  }, []);
+
+  const executeVoiceCommand = useCallback((command: 'new-game' | 'hint' | 'pause' | 'resume' | 'go-home') => {
+    if (command === 'new-game') {
+      setShowNewModal(true);
+      return;
+    }
+    if (command === 'hint') {
+      handleHint();
+      return;
+    }
+    if (command === 'pause') {
+      setIsPaused(true);
+      return;
+    }
+    if (command === 'go-home') {
+      router.push('/games');
+      return;
+    }
+    setIsPaused(false);
+  }, [handleHint, router]);
+
+  const startVoiceCommands = useCallback(async () => {
+    if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+      Alert.alert('Voz no disponible', 'El reconocimiento de voz no esta disponible en este dispositivo.');
+      return;
+    }
+
+    let permissions = await ExpoSpeechRecognitionModule.getPermissionsAsync();
+    if (!permissions.granted) {
+      permissions = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    }
+    if (!permissions.granted) {
+      Alert.alert('Permiso requerido', 'Necesitamos permiso de microfono para usar comandos por voz.');
+      return;
+    }
+
+    clearVoiceListeners();
+
+    resultSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener(
+      'result',
+      (event: ExpoSpeechRecognitionResultEvent) => {
+        const transcript = event.results.map(r => r.transcript).join(' ').trim();
+        if (!transcript) return;
+
+        const command = getVoiceCommand(transcript);
+        if (command) {
+          stopVoiceCommands();
+          executeVoiceCommand(command);
+          return;
+        }
+
+        if (event.isFinal) {
+          stopVoiceCommands();
+          Alert.alert('Comando no reconocido', 'Di: nuevo juego, pista, pausa, reanudar o regresar.');
+        }
+      },
+    );
+
+    endSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener('end', () => {
+      setIsVoiceListening(false);
+      clearVoiceListeners();
+    });
+
+    errorSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener('error', () => {
+      setIsVoiceListening(false);
+      clearVoiceListeners();
+      Alert.alert('Error de voz', 'No pudimos entender tu voz. Intentalo de nuevo.');
+    });
+
+    try {
+      ExpoSpeechRecognitionModule.start({
+        lang: 'es-MX',
+        interimResults: true,
+        continuous: false,
+      });
+      setIsVoiceListening(true);
+    } catch {
+      clearVoiceListeners();
+      setIsVoiceListening(false);
+      Alert.alert('Error de voz', 'No se pudo iniciar el reconocimiento de voz.');
+    }
+  }, [clearVoiceListeners, executeVoiceCommand, getVoiceCommand, stopVoiceCommands]);
+
+  const handleVoicePress = useCallback(() => {
+    if (isVoiceListening) {
+      stopVoiceCommands();
+      return;
+    }
+    startVoiceCommands();
+  }, [isVoiceListening, startVoiceCommands, stopVoiceCommands]);
+
+  useEffect(() => {
+    return () => {
+      stopVoiceCommands();
+    };
+  }, [stopVoiceCommands]);
   const flatCells = puzzle.grid.flatMap((row, r) =>
     row.map((letter, c) => ({ letter, r, c, key: `${r}-${c}` }))
   );
@@ -384,6 +533,18 @@ export default function WordSearchScreen() {
 
       {/* Spacer */}
       <View style={styles.spacer} />
+
+      <TouchableOpacity
+        style={[styles.voiceBtn, isVoiceListening && styles.voiceBtnActive]}
+        onPress={handleVoicePress}
+        accessibilityRole="button"
+        accessibilityLabel={isVoiceListening ? 'Detener comandos de voz' : 'Activar comandos de voz'}
+      >
+        <Ionicons name={isVoiceListening ? 'mic' : 'mic-outline'} size={22} color={isVoiceListening ? '#FFFFFF' : NAVY} />
+        <Text style={[styles.voiceBtnText, isVoiceListening && styles.voiceBtnTextActive]}>
+          {isVoiceListening ? 'Escuchando comando...' : 'Comandos por voz'}
+        </Text>
+      </TouchableOpacity>
 
       {/* ── Bottom buttons ───────────────────────────────────────────── */}
       <View style={styles.bottomRow}>
@@ -650,6 +811,31 @@ const styles = StyleSheet.create({
   /* Spacer + Bottom */
   spacer: {
     flex: 1,
+  },
+  voiceBtn: {
+    marginHorizontal: 24,
+    marginTop: 2,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: NAVY,
+    backgroundColor: '#FFFFFF',
+  },
+  voiceBtnActive: {
+    backgroundColor: NAVY,
+  },
+  voiceBtnText: {
+    fontSize: 17,
+    fontFamily: 'Montserrat_700Bold',
+    color: NAVY,
+  },
+  voiceBtnTextActive: {
+    color: '#FFFFFF',
   },
   bottomRow: {
     flexDirection: 'row',

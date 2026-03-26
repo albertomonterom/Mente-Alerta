@@ -1,15 +1,21 @@
 import { useWaitMode } from '@/context/wait-mode-context';
+import { Ionicons } from '@expo/vector-icons';
+import { type EventSubscription } from 'expo-modules-core';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
 import {
-  Alert,
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    ExpoSpeechRecognitionModule,
+    type ExpoSpeechRecognitionResultEvent,
+} from 'expo-speech-recognition';
+import { useEffect, useRef, useState } from 'react';
+import {
+    Alert,
+    Image,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 
 const NAVY = '#1B3A6B';
@@ -56,6 +62,16 @@ const DURATIONS = [
   { label: '20 minutos', value: 20 },
 ];
 
+const VOICE_GAME_PATTERNS: Array<{ key: string; patterns: string[] }> = [
+  { key: 'domino', patterns: ['domino', 'dominó'] },
+  { key: 'solitario', patterns: ['solitario'] },
+  { key: 'sudoku', patterns: ['sudoku'] },
+  {
+    key: 'sopa',
+    patterns: ['sopa de letras', 'sopa', 'letras', 'word search'],
+  },
+];
+
 export default function GamesScreen() {
   const router = useRouter();
   const { startWaitMode, largerText, highContrast, isActive } = useWaitMode();
@@ -64,6 +80,138 @@ export default function GamesScreen() {
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
   const [showWaitModal, setShowWaitModal] = useState(false);
   const [showTimeModal, setShowTimeModal] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+
+  const resultSubscriptionRef = useRef<EventSubscription | null>(null);
+  const endSubscriptionRef = useRef<EventSubscription | null>(null);
+  const errorSubscriptionRef = useRef<EventSubscription | null>(null);
+
+  const clearVoiceListeners = () => {
+    resultSubscriptionRef.current?.remove();
+    endSubscriptionRef.current?.remove();
+    errorSubscriptionRef.current?.remove();
+    resultSubscriptionRef.current = null;
+    endSubscriptionRef.current = null;
+    errorSubscriptionRef.current = null;
+  };
+
+  const stopVoiceSelection = () => {
+    setIsListening(false);
+    clearVoiceListeners();
+    try {
+      ExpoSpeechRecognitionModule.stop();
+    } catch {
+      // Ignore stop errors when recognizer is already inactive.
+    }
+  };
+
+  const detectGameFromTranscript = (transcript: string): string | null => {
+    const normalized = transcript
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    for (const voiceGame of VOICE_GAME_PATTERNS) {
+      for (const pattern of voiceGame.patterns) {
+        const normalizedPattern = pattern
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
+        if (normalized.includes(normalizedPattern)) {
+          return voiceGame.key;
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const startVoiceSelection = async () => {
+    if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+      Alert.alert('Voz no disponible', 'El reconocimiento de voz no esta disponible en este dispositivo.');
+      return;
+    }
+
+    let permissions = await ExpoSpeechRecognitionModule.getPermissionsAsync();
+    if (!permissions.granted) {
+      permissions = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    }
+
+    if (!permissions.granted) {
+      Alert.alert('Permiso requerido', 'Necesitamos permiso de microfono para seleccionar juegos por voz.');
+      return;
+    }
+
+    clearVoiceListeners();
+
+    resultSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener(
+      'result',
+      (event: ExpoSpeechRecognitionResultEvent) => {
+        const transcript = event.results
+          .map(result => result.transcript)
+          .join(' ')
+          .trim();
+
+        if (transcript.length === 0) {
+          return;
+        }
+
+        const detectedGame = detectGameFromTranscript(transcript);
+
+        if (detectedGame) {
+          stopVoiceSelection();
+          handleGamePress(detectedGame);
+          return;
+        }
+
+        if (event.isFinal) {
+          stopVoiceSelection();
+          Alert.alert(
+            'Juego no reconocido',
+            'Di: domino, solitario, sudoku o sopa de letras.',
+          );
+        }
+      },
+    );
+
+    endSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener('end', () => {
+      setIsListening(false);
+      clearVoiceListeners();
+    });
+
+    errorSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener('error', () => {
+      setIsListening(false);
+      clearVoiceListeners();
+      Alert.alert('Error de voz', 'No pudimos entender tu voz. Intentalo de nuevo.');
+    });
+
+    try {
+      ExpoSpeechRecognitionModule.start({
+        lang: 'es-MX',
+        interimResults: true,
+        continuous: false,
+      });
+      setIsListening(true);
+    } catch {
+      clearVoiceListeners();
+      setIsListening(false);
+      Alert.alert('Error de voz', 'No se pudo iniciar el reconocimiento de voz.');
+    }
+  };
+
+  const handleVoiceSelectionPress = () => {
+    if (isListening) {
+      stopVoiceSelection();
+      return;
+    }
+    startVoiceSelection();
+  };
+
+  useEffect(() => {
+    return () => {
+      stopVoiceSelection();
+    };
+  }, []);
 
   // Look up the route for whatever game is currently selected
   const getRoute = (gameKey: string) =>
@@ -136,6 +284,25 @@ export default function GamesScreen() {
             </Pressable>
           ))}
         </View>
+
+        <Pressable
+          style={[styles.voiceButton, isListening && styles.voiceButtonActive]}
+          onPress={handleVoiceSelectionPress}
+          accessibilityRole="button"
+          accessibilityLabel={isListening ? 'Detener seleccion por voz' : 'Seleccionar juego por voz'}
+        >
+          <Ionicons
+            name={isListening ? 'mic' : 'mic-outline'}
+            size={24}
+            color={isListening ? '#FFFFFF' : NAVY}
+          />
+          <Text style={[styles.voiceButtonText, isListening && styles.voiceButtonTextActive, { fontSize: fs(20) }]}>
+            {isListening ? 'Escuchando... di el juego' : 'Seleccionar por voz'}
+          </Text>
+        </Pressable>
+        <Text style={[styles.voiceHint, { fontSize: fs(16), color: highContrast ? '#111111' : '#555555' }]}> 
+          Di: dominó, solitario, sudoku o sopa de letras.
+        </Text>
 
         <View style={styles.divider} />
       </ScrollView>
@@ -245,6 +412,34 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_700Bold',
     textAlign: 'center',
     lineHeight: 28,
+  },
+  voiceButton: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: NAVY,
+    borderRadius: 999,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+  },
+  voiceButtonActive: {
+    backgroundColor: NAVY,
+  },
+  voiceButtonText: {
+    fontFamily: 'Montserrat_700Bold',
+    color: NAVY,
+  },
+  voiceButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  voiceHint: {
+    marginTop: 10,
+    textAlign: 'center',
+    fontFamily: 'Montserrat_400Regular',
   },
   modalOverlay: {
     flex: 1,

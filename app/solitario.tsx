@@ -1,8 +1,14 @@
 import { useWaitMode } from '@/context/wait-mode-context';
 import { Ionicons } from '@expo/vector-icons';
+import { type EventSubscription } from 'expo-modules-core';
 import { useRouter } from 'expo-router';
+import {
+    ExpoSpeechRecognitionModule,
+    type ExpoSpeechRecognitionResultEvent,
+} from 'expo-speech-recognition';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+    Alert,
     Modal,
     Pressable,
     SafeAreaView,
@@ -193,10 +199,15 @@ export default function SolitarioScreen() {
   const [game,      setGame]      = useState<GameState>(() => dealGame());
   const [selection, setSelection] = useState<SelectionSource | null>(null);
   const [showWin,   setShowWin]   = useState(false);
+  const [showNewGameModal, setShowNewGameModal] = useState(false);
   const [hintSource,    setHintSource]    = useState<string | null>(null); // card id
   const [hintTargetKey, setHintTargetKey] = useState<string | null>(null); // 'f0'-'f3' | 't0'-'t6'
   const [hintMessage,   setHintMessage]   = useState<string>('');
+  const [isVoiceListening, setIsVoiceListening] = useState(false);
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resultSubscriptionRef = useRef<EventSubscription | null>(null);
+  const endSubscriptionRef = useRef<EventSubscription | null>(null);
+  const errorSubscriptionRef = useRef<EventSubscription | null>(null);
 
   // Win check
   useEffect(() => {
@@ -226,8 +237,136 @@ export default function SolitarioScreen() {
     setGame(dealGame());
     setSelection(null);
     setShowWin(false);
+    setShowNewGameModal(false);
     clearHint();
   }, [clearHint]);
+
+  const requestNewGame = useCallback(() => {
+    setShowNewGameModal(true);
+  }, []);
+
+  const clearVoiceListeners = useCallback(() => {
+    resultSubscriptionRef.current?.remove();
+    endSubscriptionRef.current?.remove();
+    errorSubscriptionRef.current?.remove();
+    resultSubscriptionRef.current = null;
+    endSubscriptionRef.current = null;
+    errorSubscriptionRef.current = null;
+  }, []);
+
+  const stopVoiceCommands = useCallback(() => {
+    setIsVoiceListening(false);
+    clearVoiceListeners();
+    try {
+      ExpoSpeechRecognitionModule.stop();
+    } catch {
+      // Ignore when recognizer is already inactive.
+    }
+  }, [clearVoiceListeners]);
+
+  const getVoiceCommand = useCallback((transcript: string) => {
+    const normalized = transcript
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    if (normalized.includes('nuevo juego') || normalized.includes('nueva partida') || normalized.includes('reiniciar')) {
+      return 'new-game' as const;
+    }
+    if (normalized.includes('pista') || normalized.includes('ayuda')) {
+      return 'hint' as const;
+    }
+    if (normalized.includes('regresar') || normalized.includes('volver') || normalized.includes('inicio')) {
+      return 'go-home' as const;
+    }
+    return null;
+  }, []);
+
+  const startVoiceCommands = useCallback(async () => {
+    if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+      Alert.alert('Voz no disponible', 'El reconocimiento de voz no esta disponible en este dispositivo.');
+      return;
+    }
+
+    let permissions = await ExpoSpeechRecognitionModule.getPermissionsAsync();
+    if (!permissions.granted) {
+      permissions = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    }
+    if (!permissions.granted) {
+      Alert.alert('Permiso requerido', 'Necesitamos permiso de microfono para usar comandos por voz.');
+      return;
+    }
+
+    clearVoiceListeners();
+
+    resultSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener(
+      'result',
+      (event: ExpoSpeechRecognitionResultEvent) => {
+        const transcript = event.results.map(r => r.transcript).join(' ').trim();
+        if (!transcript) return;
+
+        const command = getVoiceCommand(transcript);
+        if (command === 'new-game') {
+          stopVoiceCommands();
+          requestNewGame();
+          return;
+        }
+        if (command === 'hint') {
+          stopVoiceCommands();
+          handleHint();
+          return;
+        }
+        if (command === 'go-home') {
+          stopVoiceCommands();
+          router.push('/games');
+          return;
+        }
+
+        if (event.isFinal) {
+          stopVoiceCommands();
+          Alert.alert('Comando no reconocido', 'Di: nuevo juego, pista o regresar.');
+        }
+      },
+    );
+
+    endSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener('end', () => {
+      setIsVoiceListening(false);
+      clearVoiceListeners();
+    });
+
+    errorSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener('error', () => {
+      setIsVoiceListening(false);
+      clearVoiceListeners();
+      Alert.alert('Error de voz', 'No pudimos entender tu voz. Intentalo de nuevo.');
+    });
+
+    try {
+      ExpoSpeechRecognitionModule.start({
+        lang: 'es-MX',
+        interimResults: true,
+        continuous: false,
+      });
+      setIsVoiceListening(true);
+    } catch {
+      clearVoiceListeners();
+      setIsVoiceListening(false);
+      Alert.alert('Error de voz', 'No se pudo iniciar el reconocimiento de voz.');
+    }
+  }, [clearVoiceListeners, getVoiceCommand, handleHint, requestNewGame, stopVoiceCommands]);
+
+  const handleVoicePress = useCallback(() => {
+    if (isVoiceListening) {
+      stopVoiceCommands();
+      return;
+    }
+    startVoiceCommands();
+  }, [isVoiceListening, startVoiceCommands, stopVoiceCommands]);
+
+  useEffect(() => {
+    return () => {
+      stopVoiceCommands();
+    };
+  }, [stopVoiceCommands]);
 
   // ── Stock tap: flip one card to waste ──────────────────────────────────────
   const handleStockTap = () => {
@@ -535,9 +674,21 @@ export default function SolitarioScreen() {
       )}
 
       {/* ── Bottom buttons ── */}
+      <Pressable
+        style={[styles.voiceBtn, isVoiceListening && styles.voiceBtnActive]}
+        onPress={handleVoicePress}
+        accessibilityRole="button"
+        accessibilityLabel={isVoiceListening ? 'Detener comandos de voz' : 'Activar comandos de voz'}
+      >
+        <Ionicons name={isVoiceListening ? 'mic' : 'mic-outline'} size={22} color={isVoiceListening ? '#FFFFFF' : NAVY} />
+        <Text style={[styles.voiceBtnText, isVoiceListening && styles.voiceBtnTextActive, { fontSize: fs(16) }]}>
+          {isVoiceListening ? 'Escuchando comando...' : 'Comandos por voz'}
+        </Text>
+      </Pressable>
+
       <View style={styles.bottomRow}>
         <Pressable style={[styles.actionBtn, styles.actionBtnPrimary]}
-          onPress={newGame} accessibilityRole="button" accessibilityLabel="Nuevo juego">
+          onPress={requestNewGame} accessibilityRole="button" accessibilityLabel="Nuevo juego">
           <Ionicons name="refresh" size={22} color="#FFFFFF" />
           <Text style={[styles.actionBtnText, { fontSize: fs(16) }]}>Nuevo juego</Text>
         </Pressable>
@@ -547,6 +698,41 @@ export default function SolitarioScreen() {
           <Text style={[styles.actionBtnText, styles.actionBtnTextOutline, { fontSize: fs(16) }]}>Pista</Text>
         </Pressable>
       </View>
+
+      <Modal
+        visible={showNewGameModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowNewGameModal(false)}
+      >
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmCard}>
+            <Ionicons name="refresh-circle-outline" size={52} color={NAVY} />
+            <Text style={styles.confirmTitle}>Nuevo juego</Text>
+            <Text style={styles.confirmBody}>
+              {'¿Desea comenzar un nuevo juego?\nSe perderá el progreso actual.'}
+            </Text>
+            <View style={styles.confirmButtons}>
+              <Pressable
+                style={styles.confirmCancelBtn}
+                onPress={() => setShowNewGameModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Cancelar"
+              >
+                <Text style={styles.confirmCancelText}>Cancelar</Text>
+              </Pressable>
+              <Pressable
+                style={styles.confirmOkBtn}
+                onPress={newGame}
+                accessibilityRole="button"
+                accessibilityLabel="Sí, nuevo juego"
+              >
+                <Text style={styles.confirmOkText}>Sí, nuevo juego</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── Win modal ── */}
       <Modal visible={showWin} transparent animationType="fade">
@@ -735,6 +921,30 @@ const styles = StyleSheet.create({
   },
 
   /* Bottom row */
+  voiceBtn: {
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 14,
+    paddingVertical: 12,
+    borderWidth: 2,
+    borderColor: NAVY,
+    backgroundColor: '#FFFFFF',
+  },
+  voiceBtnActive: {
+    backgroundColor: NAVY,
+  },
+  voiceBtnText: {
+    fontFamily: 'Montserrat_700Bold',
+    color: NAVY,
+  },
+  voiceBtnTextActive: {
+    color: '#FFFFFF',
+  },
   bottomRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -828,5 +1038,69 @@ const styles = StyleSheet.create({
   modalBtnText: {
     color: '#FFFFFF',
     fontFamily: 'Montserrat_700Bold',
+  },
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.50)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmCard: {
+    width: '82%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingVertical: 28,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  confirmTitle: {
+    marginTop: 8,
+    fontSize: 28,
+    fontFamily: 'Montserrat_800ExtraBold',
+    color: NAVY,
+    textAlign: 'center',
+  },
+  confirmBody: {
+    marginTop: 10,
+    fontSize: 17,
+    lineHeight: 24,
+    fontFamily: 'Montserrat_400Regular',
+    color: '#444444',
+    textAlign: 'center',
+  },
+  confirmButtons: {
+    marginTop: 20,
+    width: '100%',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  confirmCancelBtn: {
+    flex: 1,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  confirmCancelText: {
+    fontSize: 16,
+    fontFamily: 'Montserrat_700Bold',
+    color: '#333333',
+  },
+  confirmOkBtn: {
+    flex: 1,
+    backgroundColor: NAVY,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  confirmOkText: {
+    fontSize: 16,
+    fontFamily: 'Montserrat_700Bold',
+    color: '#FFFFFF',
   },
 });
