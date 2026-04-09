@@ -3,19 +3,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { type EventSubscription } from 'expo-modules-core';
 import { useRouter } from 'expo-router';
 import {
-    ExpoSpeechRecognitionModule,
-    type ExpoSpeechRecognitionResultEvent,
+  ExpoSpeechRecognitionModule,
+  type ExpoSpeechRecognitionResultEvent,
 } from 'expo-speech-recognition';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    Alert,
-    Modal,
-    Pressable,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Alert,
+  Modal,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -234,7 +234,11 @@ type GameStatus = 'playing' | 'player_win' | 'cpu_win' | 'draw';
 
 export default function DominoScreen() {
   const router   = useRouter();
-  const { largerText } = useWaitMode();
+  const {
+    largerText,
+    suspendWaitModeVoiceDetection,
+    resumeWaitModeVoiceDetection,
+  } = useWaitMode();
   const fs = (base: number) => base + (largerText ? 4 : 0);
 
   const startNew = useCallback(() => {
@@ -283,6 +287,7 @@ export default function DominoScreen() {
   const resultSubscriptionRef = useRef<EventSubscription | null>(null);
   const endSubscriptionRef = useRef<EventSubscription | null>(null);
   const errorSubscriptionRef = useRef<EventSubscription | null>(null);
+  const suspendedWaitModeRef = useRef(false);
 
   const triggerCpuHighlight = (tile: Tile | null) => {
     if (cpuHighlightTimer.current) clearTimeout(cpuHighlightTimer.current);
@@ -397,6 +402,12 @@ export default function DominoScreen() {
     errorSubscriptionRef.current = null;
   };
 
+  const resumeWaitModeIfNeeded = () => {
+    if (!suspendedWaitModeRef.current) return;
+    suspendedWaitModeRef.current = false;
+    resumeWaitModeVoiceDetection();
+  };
+
   const stopVoiceCommands = () => {
     setIsVoiceListening(false);
     clearVoiceListeners();
@@ -405,6 +416,7 @@ export default function DominoScreen() {
     } catch {
       // Ignore when recognizer is already inactive.
     }
+    resumeWaitModeIfNeeded();
   };
 
   const getVoiceCommand = (transcript: string) => {
@@ -443,6 +455,10 @@ export default function DominoScreen() {
       return;
     }
 
+    suspendedWaitModeRef.current = suspendWaitModeVoiceDetection();
+    if (suspendedWaitModeRef.current) {
+      await new Promise(resolve => setTimeout(resolve, 650));
+    }
     clearVoiceListeners();
 
     resultSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener(
@@ -483,11 +499,13 @@ export default function DominoScreen() {
     endSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener('end', () => {
       setIsVoiceListening(false);
       clearVoiceListeners();
+      resumeWaitModeIfNeeded();
     });
 
     errorSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener('error', () => {
       setIsVoiceListening(false);
       clearVoiceListeners();
+      resumeWaitModeIfNeeded();
       Alert.alert('Error de voz', 'No pudimos entender tu voz. Intentalo de nuevo.');
     });
 
@@ -501,6 +519,7 @@ export default function DominoScreen() {
     } catch {
       clearVoiceListeners();
       setIsVoiceListening(false);
+      resumeWaitModeIfNeeded();
       Alert.alert('Error de voz', 'No se pudo iniciar el reconocimiento de voz.');
     }
   };
@@ -702,9 +721,9 @@ export default function DominoScreen() {
                 style={styles.confirmOkBtn}
                 onPress={handleNewGame}
                 accessibilityRole="button"
-                accessibilityLabel="Sí, nuevo juego"
+                accessibilityLabel="Confirmar"
               >
-                <Text style={styles.confirmOkText}>Sí, nuevo juego</Text>
+                <Text style={styles.confirmOkText}>Confirmar</Text>
               </Pressable>
             </View>
           </View>

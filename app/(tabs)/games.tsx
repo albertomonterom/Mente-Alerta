@@ -3,19 +3,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { type EventSubscription } from 'expo-modules-core';
 import { useRouter } from 'expo-router';
 import {
-    ExpoSpeechRecognitionModule,
-    type ExpoSpeechRecognitionResultEvent,
+  ExpoSpeechRecognitionModule,
+  type ExpoSpeechRecognitionResultEvent,
 } from 'expo-speech-recognition';
 import { useEffect, useRef, useState } from 'react';
 import {
-    Alert,
-    Image,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Alert,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
 const NAVY = '#1B3A6B';
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   voiceButton: {
-    marginTop: 16,
+    marginTop: 30,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

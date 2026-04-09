@@ -1,23 +1,25 @@
+import { useWaitMode } from '@/context/wait-mode-context';
 import { generateWordSearch } from '@/utils/word-search-generator';
 import { Ionicons } from '@expo/vector-icons';
 import { type EventSubscription } from 'expo-modules-core';
 import { Stack, useRouter } from 'expo-router';
 import {
-    ExpoSpeechRecognitionModule,
-    type ExpoSpeechRecognitionResultEvent,
+  ExpoSpeechRecognitionModule,
+  type ExpoSpeechRecognitionResultEvent,
 } from 'expo-speech-recognition';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Alert,
-    Animated,
-    FlatList,
-    Modal,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  Alert,
+  Animated,
+  FlatList,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from 'react-native';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -81,6 +83,10 @@ function getCellsBetween(
 export default function WordSearchScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const {
+    suspendWaitModeVoiceDetection,
+    resumeWaitModeVoiceDetection,
+  } = useWaitMode();
 
   const SIDE_PAD  = 8;
   const cellSize  = Math.floor((width - SIDE_PAD * 2) / 8);
@@ -106,6 +112,13 @@ export default function WordSearchScreen() {
   const resultSubscriptionRef = useRef<EventSubscription | null>(null);
   const endSubscriptionRef = useRef<EventSubscription | null>(null);
   const errorSubscriptionRef = useRef<EventSubscription | null>(null);
+  const suspendedWaitModeRef = useRef(false);
+
+  const resumeWaitModeIfNeeded = useCallback(() => {
+    if (!suspendedWaitModeRef.current) return;
+    suspendedWaitModeRef.current = false;
+    resumeWaitModeVoiceDetection();
+  }, [resumeWaitModeVoiceDetection]);
 
   // True once every placed word has been found
   const isGameComplete =
@@ -182,7 +195,8 @@ export default function WordSearchScreen() {
     } catch {
       // Ignore when recognizer is already inactive.
     }
-  }, [clearVoiceListeners]);
+    resumeWaitModeIfNeeded();
+  }, [clearVoiceListeners, resumeWaitModeIfNeeded]);
 
   const getVoiceCommand = useCallback((transcript: string) => {
     const normalized = transcript
@@ -243,6 +257,10 @@ export default function WordSearchScreen() {
       return;
     }
 
+    suspendedWaitModeRef.current = suspendWaitModeVoiceDetection();
+    if (suspendedWaitModeRef.current) {
+      await new Promise(resolve => setTimeout(resolve, 650));
+    }
     clearVoiceListeners();
 
     resultSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener(
@@ -268,11 +286,13 @@ export default function WordSearchScreen() {
     endSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener('end', () => {
       setIsVoiceListening(false);
       clearVoiceListeners();
+      resumeWaitModeIfNeeded();
     });
 
     errorSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener('error', () => {
       setIsVoiceListening(false);
       clearVoiceListeners();
+      resumeWaitModeIfNeeded();
       Alert.alert('Error de voz', 'No pudimos entender tu voz. Intentalo de nuevo.');
     });
 
@@ -286,9 +306,17 @@ export default function WordSearchScreen() {
     } catch {
       clearVoiceListeners();
       setIsVoiceListening(false);
+      resumeWaitModeIfNeeded();
       Alert.alert('Error de voz', 'No se pudo iniciar el reconocimiento de voz.');
     }
-  }, [clearVoiceListeners, executeVoiceCommand, getVoiceCommand, stopVoiceCommands]);
+  }, [
+    clearVoiceListeners,
+    executeVoiceCommand,
+    getVoiceCommand,
+    resumeWaitModeIfNeeded,
+    stopVoiceCommands,
+    suspendWaitModeVoiceDetection,
+  ]);
 
   const handleVoicePress = useCallback(() => {
     if (isVoiceListening) {
@@ -435,6 +463,11 @@ export default function WordSearchScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
 
       {/* ── Header ──────────────────────────────────────────────────── */}
       <View style={styles.header}>
@@ -456,8 +489,8 @@ export default function WordSearchScreen() {
           >
             <Ionicons
               name={isPaused ? 'play' : 'pause'}
-              size={13}
-              color="#5C4000"
+              size={16}
+              color="#FFFFFF"
             />
             <Text style={styles.pauseText}>
               {isPaused ? 'Reanudar' : 'Pausa'}
@@ -465,10 +498,27 @@ export default function WordSearchScreen() {
           </TouchableOpacity>
 
           <View style={styles.hintsChip}>
-            <Text style={styles.hintsChipText}>💡 {hints}</Text>
+            <Ionicons name="bulb-outline" size={16} color="#FFFFFF" />
+            <Text style={styles.hintsChipText}>{hints}</Text>
           </View>
         </View>
       </View>
+
+      <TouchableOpacity
+        style={[styles.voiceBtn, isVoiceListening && styles.voiceBtnActive]}
+        onPress={handleVoicePress}
+        accessibilityRole="button"
+        accessibilityLabel={isVoiceListening ? 'Detener comandos por voz' : 'Activar comandos por voz'}
+      >
+        <Ionicons
+          name={isVoiceListening ? 'mic' : 'mic-outline'}
+          size={22}
+          color={isVoiceListening ? '#FFFFFF' : NAVY}
+        />
+        <Text style={[styles.voiceBtnText, isVoiceListening && styles.voiceBtnTextActive]}>
+          {isVoiceListening ? 'Escuchando comando...' : 'Comandos por voz'}
+        </Text>
+      </TouchableOpacity>
 
       {/* ── Grid ────────────────────────────────────────────────────── */}
       <View style={[styles.gridWrapper, { paddingHorizontal: SIDE_PAD }]}>
@@ -531,21 +581,6 @@ export default function WordSearchScreen() {
         </View>
       </View>
 
-      {/* Spacer */}
-      <View style={styles.spacer} />
-
-      <TouchableOpacity
-        style={[styles.voiceBtn, isVoiceListening && styles.voiceBtnActive]}
-        onPress={handleVoicePress}
-        accessibilityRole="button"
-        accessibilityLabel={isVoiceListening ? 'Detener comandos de voz' : 'Activar comandos de voz'}
-      >
-        <Ionicons name={isVoiceListening ? 'mic' : 'mic-outline'} size={22} color={isVoiceListening ? '#FFFFFF' : NAVY} />
-        <Text style={[styles.voiceBtnText, isVoiceListening && styles.voiceBtnTextActive]}>
-          {isVoiceListening ? 'Escuchando comando...' : 'Comandos por voz'}
-        </Text>
-      </TouchableOpacity>
-
       {/* ── Bottom buttons ───────────────────────────────────────────── */}
       <View style={styles.bottomRow}>
         <TouchableOpacity
@@ -568,6 +603,7 @@ export default function WordSearchScreen() {
           <Text style={styles.bottomBtnText}>💡 Pista</Text>
         </TouchableOpacity>
       </View>
+      </ScrollView>
 
       {/* ── Win overlay ─────────────────────────────────────────────── */}
       {isGameComplete && (
@@ -626,9 +662,9 @@ export default function WordSearchScreen() {
                 style={styles.confirmOkBtn}
                 onPress={handleNewGame}
                 accessibilityRole="button"
-                accessibilityLabel="Sí, nuevo juego"
+                accessibilityLabel="Confirmar"
               >
-                <Text style={styles.confirmOkText}>Sí, nuevo juego</Text>
+                <Text style={styles.confirmOkText}>Confirmar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -644,6 +680,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 22,
   },
 
   /* Header */
@@ -668,24 +711,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 1,
   },
   pauseBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: GOLD,
-    paddingHorizontal: 12,
+    backgroundColor: '#C98A00',
+    paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
   },
   pauseText: {
     fontSize: 13,
     fontFamily: 'Montserrat_700Bold',
-    color: '#5C4000',
+    color: '#FFFFFF',
   },
   hintsChip: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#2E7D32',
+    paddingHorizontal: 13,
     paddingVertical: 7,
     borderRadius: 20,
   },
@@ -704,21 +751,31 @@ const styles = StyleSheet.create({
   /* Grid */
   gridWrapper: {
     marginTop: 12,
-    marginBottom: 8,
+    marginBottom: 10,
+    padding: 8,
+    borderRadius: 18,
+    backgroundColor: '#F4F8FF',
+    borderWidth: 1,
+    borderColor: '#D9E5F5',
+    shadowColor: '#0B2B57',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   gridBorder: {
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#C9D8EC',
     overflow: 'hidden',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#FFFFFF',
   },
   cell: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 0.5,
-    borderColor: BORDER_CLR,
-    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D7E1EE',
+    backgroundColor: '#FBFDFF',
   },
   cellFound: {
     backgroundColor: FOUND_BG,
@@ -767,13 +824,14 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: '#DDDDDD',
     marginHorizontal: 40,
-    marginVertical: 10,
+    marginVertical: 4,
   },
 
   /* Word list */
   wordSection: {
     paddingHorizontal: 24,
     alignItems: 'center',
+    marginTop: -6,
   },
   wordSectionTitle: {
     fontSize: 18,
@@ -808,26 +866,23 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_700Bold',
   },
 
-  /* Spacer + Bottom */
-  spacer: {
-    flex: 1,
-  },
   voiceBtn: {
-    marginHorizontal: 24,
-    marginTop: 2,
-    marginBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 2,
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: NAVY,
-    backgroundColor: '#FFFFFF',
+    borderColor: '#D97706',
+    backgroundColor: '#F9B233',
   },
   voiceBtnActive: {
-    backgroundColor: NAVY,
+    backgroundColor: '#D97706',
+    borderColor: '#D97706',
   },
   voiceBtnText: {
     fontSize: 17,
@@ -836,6 +891,11 @@ const styles = StyleSheet.create({
   },
   voiceBtnTextActive: {
     color: '#FFFFFF',
+  },
+
+  /* Spacer + Bottom */
+  spacer: {
+    flex: 1,
   },
   bottomRow: {
     flexDirection: 'row',

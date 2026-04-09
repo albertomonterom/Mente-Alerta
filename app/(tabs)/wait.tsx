@@ -75,7 +75,7 @@ export default function WaitScreen() {
       )}
 
       {/* ── DEV: Test alert modals ─────────────────────────────────── */}
-      <View style={styles.devRow}>
+      {/* <View style={styles.devRow}>
         <Text style={styles.devLabel}>DEV</Text>
         <Pressable
           style={[styles.devButton, { backgroundColor: '#1B3A6B' }]}
@@ -89,7 +89,7 @@ export default function WaitScreen() {
         >
           <Text style={styles.devButtonText}>Voice</Text>
         </Pressable>
-      </View>
+      </View> */}
     </View>
   );
 }

@@ -11,6 +11,7 @@ export default function TabLayout() {
   return (
     <>
       <Tabs
+        initialRouteName="games"
         screenOptions={{
           tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
           tabBarInactiveTintColor: Colors[colorScheme ?? 'light'].tabIconDefault,
@@ -21,7 +22,6 @@ export default function TabLayout() {
           headerTitleStyle: { fontSize: 22, fontWeight: 'bold' },
         }}
       >
-        <Tabs.Screen name="index" options={{ href: null }} />
         <Tabs.Screen name="games" options={{ title: 'Juegos', tabBarIcon: ({ color, size }) => <Ionicons name="game-controller" size={size} color={color} /> }} />
         <Tabs.Screen name="wait" options={{ title: 'Espera', tabBarIcon: ({ color, size }) => <Ionicons name="time" size={size} color={color} /> }} />
         <Tabs.Screen name="settings" options={{ title: 'Configuración', tabBarIcon: ({ color, size }) => <Ionicons name="settings" size={size} color={color} /> }} />

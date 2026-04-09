@@ -15,6 +15,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -44,21 +45,24 @@ export default function RootLayout() {
   }
 
   return (
-    <WaitModeProvider>
-      <SudokuProvider> 
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="sudoku" options={{ headerShown: false }} />
-          <Stack.Screen name="domino" options={{ headerShown: false }} />
-          <Stack.Screen name="solitario" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        </Stack>
-        <WaitModeBanner />
-        <StatusBar style="auto" />
-      </ThemeProvider>
-       </SudokuProvider>
-    </WaitModeProvider>
+    <SafeAreaProvider>
+      <WaitModeProvider>
+        <SudokuProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <Stack>
+              <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="word-search" options={{ headerShown: false }} />
+              <Stack.Screen name="sudoku" options={{ headerShown: false }} />
+              <Stack.Screen name="domino" options={{ headerShown: false }} />
+              <Stack.Screen name="solitario" options={{ headerShown: false }} />
+              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+            </Stack>
+            <WaitModeBanner />
+            <StatusBar style="auto" />
+          </ThemeProvider>
+        </SudokuProvider>
+      </WaitModeProvider>
+    </SafeAreaProvider>
   );
 }

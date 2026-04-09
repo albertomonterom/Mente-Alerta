@@ -3,19 +3,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { type EventSubscription } from 'expo-modules-core';
 import { useRouter } from 'expo-router';
 import {
-    ExpoSpeechRecognitionModule,
-    type ExpoSpeechRecognitionResultEvent,
+  ExpoSpeechRecognitionModule,
+  type ExpoSpeechRecognitionResultEvent,
 } from 'expo-speech-recognition';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    Alert,
-    Modal,
-    Pressable,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Alert,
+  Modal,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -193,7 +193,11 @@ function EmptyPile({ label, width = 48 }: { label?: string; width?: number }) {
 
 export default function SolitarioScreen() {
   const router = useRouter();
-  const { largerText } = useWaitMode();
+  const {
+    largerText,
+    suspendWaitModeVoiceDetection,
+    resumeWaitModeVoiceDetection,
+  } = useWaitMode();
   const fs = (base: number) => base + (largerText ? 4 : 0);
 
   const [game,      setGame]      = useState<GameState>(() => dealGame());
@@ -208,6 +212,7 @@ export default function SolitarioScreen() {
   const resultSubscriptionRef = useRef<EventSubscription | null>(null);
   const endSubscriptionRef = useRef<EventSubscription | null>(null);
   const errorSubscriptionRef = useRef<EventSubscription | null>(null);
+  const suspendedWaitModeRef = useRef(false);
 
   // Win check
   useEffect(() => {
@@ -233,6 +238,55 @@ export default function SolitarioScreen() {
     setHintMessage('');
   }, []);
 
+  // ── Hint: highlight source card + destination zone ───────────────────────
+  const handleHint = () => {
+    // 1. Waste top card
+    if (game.waste.length > 0) {
+      const wCard = game.waste[game.waste.length - 1];
+      for (let fi = 0; fi < 4; fi++) {
+        if (canStackFoundation(game.foundations[fi], wCard)) {
+          flashHint(wCard.id, `f${fi}`, `Mueve ${wCard.rank}${wCard.suit} → base`);
+          return;
+        }
+      }
+      for (let col = 0; col < 7; col++) {
+        const top = game.tableau[col].length > 0 ? game.tableau[col][game.tableau[col].length - 1] : undefined;
+        if (canStackTableau(top, wCard)) {
+          flashHint(wCard.id, `t${col}`, `Mueve ${wCard.rank}${wCard.suit} → columna ${col + 1}`);
+          return;
+        }
+      }
+    }
+    // 2. Tableau cards — foundation first, then tableau moves
+    for (let col = 0; col < 7; col++) {
+      const pile = game.tableau[col];
+      for (let row = 0; row < pile.length; row++) {
+        if (!pile[row].faceUp) continue;
+        const card = pile[row];
+        for (let fi = 0; fi < 4; fi++) {
+          if (canStackFoundation(game.foundations[fi], card)) {
+            flashHint(card.id, `f${fi}`, `Mueve ${card.rank}${card.suit} → base`);
+            return;
+          }
+        }
+        for (let tc = 0; tc < 7; tc++) {
+          if (tc === col) continue;
+          const targetTop = game.tableau[tc].length > 0 ? game.tableau[tc][game.tableau[tc].length - 1] : undefined;
+          if (canStackTableau(targetTop, card)) {
+            flashHint(card.id, `t${tc}`, `Mueve ${card.rank}${card.suit} → columna ${tc + 1}`);
+            return;
+          }
+        }
+      }
+    }
+    // 3. No moves found
+    clearHint();
+    setHintMessage(game.stock.length > 0
+      ? 'No hay jugadas visibles. Saca una carta del mazo.'
+      : 'No hay jugadas disponibles.');
+    hintTimer.current = setTimeout(() => setHintMessage(''), 2500);
+  };
+
   const newGame = useCallback(() => {
     setGame(dealGame());
     setSelection(null);
@@ -254,6 +308,12 @@ export default function SolitarioScreen() {
     errorSubscriptionRef.current = null;
   }, []);
 
+  const resumeWaitModeIfNeeded = useCallback(() => {
+    if (!suspendedWaitModeRef.current) return;
+    suspendedWaitModeRef.current = false;
+    resumeWaitModeVoiceDetection();
+  }, [resumeWaitModeVoiceDetection]);
+
   const stopVoiceCommands = useCallback(() => {
     setIsVoiceListening(false);
     clearVoiceListeners();
@@ -262,7 +322,8 @@ export default function SolitarioScreen() {
     } catch {
       // Ignore when recognizer is already inactive.
     }
-  }, [clearVoiceListeners]);
+    resumeWaitModeIfNeeded();
+  }, [clearVoiceListeners, resumeWaitModeIfNeeded]);
 
   const getVoiceCommand = useCallback((transcript: string) => {
     const normalized = transcript
@@ -297,6 +358,10 @@ export default function SolitarioScreen() {
       return;
     }
 
+    suspendedWaitModeRef.current = suspendWaitModeVoiceDetection();
+    if (suspendedWaitModeRef.current) {
+      await new Promise(resolve => setTimeout(resolve, 650));
+    }
     clearVoiceListeners();
 
     resultSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener(
@@ -332,11 +397,13 @@ export default function SolitarioScreen() {
     endSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener('end', () => {
       setIsVoiceListening(false);
       clearVoiceListeners();
+      resumeWaitModeIfNeeded();
     });
 
     errorSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener('error', () => {
       setIsVoiceListening(false);
       clearVoiceListeners();
+      resumeWaitModeIfNeeded();
       Alert.alert('Error de voz', 'No pudimos entender tu voz. Intentalo de nuevo.');
     });
 
@@ -350,9 +417,18 @@ export default function SolitarioScreen() {
     } catch {
       clearVoiceListeners();
       setIsVoiceListening(false);
+      resumeWaitModeIfNeeded();
       Alert.alert('Error de voz', 'No se pudo iniciar el reconocimiento de voz.');
     }
-  }, [clearVoiceListeners, getVoiceCommand, handleHint, requestNewGame, stopVoiceCommands]);
+  }, [
+    clearVoiceListeners,
+    getVoiceCommand,
+    handleHint,
+    requestNewGame,
+    resumeWaitModeIfNeeded,
+    stopVoiceCommands,
+    suspendWaitModeVoiceDetection,
+  ]);
 
   const handleVoicePress = useCallback(() => {
     if (isVoiceListening) {
@@ -491,55 +567,6 @@ export default function SolitarioScreen() {
       }
     }
     return false;
-  };
-
-  // ── Hint: highlight source card + destination zone ───────────────────────
-  const handleHint = () => {
-    // 1. Waste top card
-    if (game.waste.length > 0) {
-      const wCard = game.waste[game.waste.length - 1];
-      for (let fi = 0; fi < 4; fi++) {
-        if (canStackFoundation(game.foundations[fi], wCard)) {
-          flashHint(wCard.id, `f${fi}`, `Mueve ${wCard.rank}${wCard.suit} → base`);
-          return;
-        }
-      }
-      for (let col = 0; col < 7; col++) {
-        const top = game.tableau[col].length > 0 ? game.tableau[col][game.tableau[col].length - 1] : undefined;
-        if (canStackTableau(top, wCard)) {
-          flashHint(wCard.id, `t${col}`, `Mueve ${wCard.rank}${wCard.suit} → columna ${col + 1}`);
-          return;
-        }
-      }
-    }
-    // 2. Tableau cards — foundation first, then tableau moves
-    for (let col = 0; col < 7; col++) {
-      const pile = game.tableau[col];
-      for (let row = 0; row < pile.length; row++) {
-        if (!pile[row].faceUp) continue;
-        const card = pile[row];
-        for (let fi = 0; fi < 4; fi++) {
-          if (canStackFoundation(game.foundations[fi], card)) {
-            flashHint(card.id, `f${fi}`, `Mueve ${card.rank}${card.suit} → base`);
-            return;
-          }
-        }
-        for (let tc = 0; tc < 7; tc++) {
-          if (tc === col) continue;
-          const targetTop = game.tableau[tc].length > 0 ? game.tableau[tc][game.tableau[tc].length - 1] : undefined;
-          if (canStackTableau(targetTop, card)) {
-            flashHint(card.id, `t${tc}`, `Mueve ${card.rank}${card.suit} → columna ${tc + 1}`);
-            return;
-          }
-        }
-      }
-    }
-    // 3. No moves found
-    clearHint();
-    setHintMessage(game.stock.length > 0
-      ? 'No hay jugadas visibles. Saca una carta del mazo.'
-      : 'No hay jugadas disponibles.');
-    hintTimer.current = setTimeout(() => setHintMessage(''), 2500);
   };
 
   // ── Derived ───────────────────────────────────────────────────────────────
@@ -725,9 +752,9 @@ export default function SolitarioScreen() {
                 style={styles.confirmOkBtn}
                 onPress={newGame}
                 accessibilityRole="button"
-                accessibilityLabel="Sí, nuevo juego"
+                accessibilityLabel="Confirmar"
               >
-                <Text style={styles.confirmOkText}>Sí, nuevo juego</Text>
+                <Text style={styles.confirmOkText}>Confirmar</Text>
               </Pressable>
             </View>
           </View>

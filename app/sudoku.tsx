@@ -43,7 +43,12 @@ const NUM_BTN_SIZE = Math.floor((BOARD_SIZE - 4 * 10) / 5);
 
 export default function SudokuScreen() {
   const router = useRouter();
-  const { largerText, highContrast } = useWaitMode();
+  const {
+    largerText,
+    highContrast,
+    suspendWaitModeVoiceDetection,
+    resumeWaitModeVoiceDetection,
+  } = useWaitMode();
   const fs = (base: number) => base + (largerText ? 4 : 0);
 
   const { playerBoard, solution, given, setPlayerBoard, newGame } = useSudoku();
@@ -56,6 +61,13 @@ export default function SudokuScreen() {
   const resultSubscriptionRef = useRef<EventSubscription | null>(null);
   const endSubscriptionRef = useRef<EventSubscription | null>(null);
   const errorSubscriptionRef = useRef<EventSubscription | null>(null);
+  const suspendedWaitModeRef = useRef(false);
+
+  const resumeWaitModeIfNeeded = () => {
+    if (!suspendedWaitModeRef.current) return;
+    suspendedWaitModeRef.current = false;
+    resumeWaitModeVoiceDetection();
+  };
 
   // ── New game ────────────────────────────────────────────────────────────────
 
@@ -114,6 +126,7 @@ export default function SudokuScreen() {
     } catch {
       // Ignore when recognizer is already inactive.
     }
+    resumeWaitModeIfNeeded();
   };
 
   const getVoiceCommand = (transcript: string) => {
@@ -149,6 +162,10 @@ export default function SudokuScreen() {
       return;
     }
 
+    suspendedWaitModeRef.current = suspendWaitModeVoiceDetection();
+    if (suspendedWaitModeRef.current) {
+      await new Promise(resolve => setTimeout(resolve, 650));
+    }
     clearVoiceListeners();
 
     resultSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener(
@@ -184,11 +201,13 @@ export default function SudokuScreen() {
     endSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener('end', () => {
       setIsVoiceListening(false);
       clearVoiceListeners();
+      resumeWaitModeIfNeeded();
     });
 
     errorSubscriptionRef.current = ExpoSpeechRecognitionModule.addListener('error', () => {
       setIsVoiceListening(false);
       clearVoiceListeners();
+      resumeWaitModeIfNeeded();
       Alert.alert('Error de voz', 'No pudimos entender tu voz. Intentalo de nuevo.');
     });
 
@@ -202,6 +221,7 @@ export default function SudokuScreen() {
     } catch {
       clearVoiceListeners();
       setIsVoiceListening(false);
+      resumeWaitModeIfNeeded();
       Alert.alert('Error de voz', 'No se pudo iniciar el reconocimiento de voz.');
     }
   };
@@ -382,9 +402,9 @@ export default function SudokuScreen() {
                 style={styles.confirmOkBtn}
                 onPress={handleConfirmNewGame}
                 accessibilityRole="button"
-                accessibilityLabel="Sí, nuevo juego"
+                accessibilityLabel="Confirmar"
               >
-                <Text style={styles.confirmOkText}>Sí, nuevo juego</Text>
+                <Text style={styles.confirmOkText}>Confirmar</Text>
               </Pressable>
             </View>
           </View>

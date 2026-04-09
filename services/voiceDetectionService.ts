@@ -21,6 +21,7 @@ let isListening = false;
 let resultSubscription: EventSubscription | null = null;
 let errorSubscription: EventSubscription | null = null;
 let endSubscription: EventSubscription | null = null;
+let restartTimer: ReturnType<typeof setTimeout> | null = null;
 
 let activeOptions: VoiceDetectionOptions | null = null;
 
@@ -35,7 +36,15 @@ function removeSubscriptions() {
   endSubscription = null;
 }
 
+function clearRestartTimer() {
+  if (restartTimer !== null) {
+    clearTimeout(restartTimer);
+    restartTimer = null;
+  }
+}
+
 function startListening() {
+  if (!isListening || activeOptions === null) return;
   ExpoSpeechRecognitionModule.start({
     lang: 'es-MX',
     interimResults: true,
@@ -56,6 +65,7 @@ export function startVoiceDetection(options: VoiceDetectionOptions): void {
 
   activeOptions = options;
   isListening = true;
+  clearRestartTimer();
 
   // Result handler — fires for both interim and final results
   resultSubscription = ExpoSpeechRecognitionModule.addListener(
@@ -81,8 +91,11 @@ export function startVoiceDetection(options: VoiceDetectionOptions): void {
   // Auto-restart on end so we listen continuously
   endSubscription = ExpoSpeechRecognitionModule.addListener('end', () => {
     if (isListening && activeOptions) {
-      // Small delay before restarting to avoid rapid cycling
-      setTimeout(startListening, 300);
+      clearRestartTimer();
+      restartTimer = setTimeout(() => {
+        restartTimer = null;
+        startListening();
+      }, 300);
     }
   });
 
@@ -93,7 +106,11 @@ export function startVoiceDetection(options: VoiceDetectionOptions): void {
     }
     // Attempt restart after recoverable errors
     if (isListening && activeOptions) {
-      setTimeout(startListening, 1000);
+      clearRestartTimer();
+      restartTimer = setTimeout(() => {
+        restartTimer = null;
+        startListening();
+      }, 1000);
     }
   });
 
@@ -106,6 +123,7 @@ export function startVoiceDetection(options: VoiceDetectionOptions): void {
 export function stopVoiceDetection(): void {
   isListening = false;
   activeOptions = null;
+  clearRestartTimer();
   removeSubscriptions();
   try {
     ExpoSpeechRecognitionModule.stop();

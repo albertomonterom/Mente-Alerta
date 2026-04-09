@@ -3,19 +3,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { type EventSubscription } from 'expo-modules-core';
 import { router } from 'expo-router';
 import {
-    ExpoSpeechRecognitionModule,
-    type ExpoSpeechRecognitionResultEvent,
+  ExpoSpeechRecognitionModule,
+  type ExpoSpeechRecognitionResultEvent,
 } from 'expo-speech-recognition';
 import { useEffect, useRef, useState } from 'react';
 import {
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 
 const NAVY = '#1B3A6B';
@@ -198,7 +198,7 @@ function StepName({ name, setName }: { name: string; setName: (v: string) => voi
   }
 
   return (
-    <View style={styles.stepContainer}>
+    <View style={[styles.stepContainer, styles.nameStepContainer]}>
       <View style={styles.iconCircle}>
         <Ionicons name="person" size={64} color={NAVY} />
       </View>
@@ -212,7 +212,6 @@ function StepName({ name, setName }: { name: string; setName: (v: string) => voi
         onChangeText={setName}
         placeholder="Tu nombre"
         placeholderTextColor="#AAAAAA"
-        autoFocus
         autoCorrect={false}
         returnKeyType="done"
         maxLength={40}
@@ -275,9 +274,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 32,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
   stepContainer: {
     alignItems: 'center',
+    paddingTop: 8,
+  },
+  nameStepContainer: {
+    marginTop: -18,
   },
   iconCircle: {
     width: 120,
@@ -309,7 +314,7 @@ const styles = StyleSheet.create({
     lineHeight: 38,
   },
   nameInput: {
-    marginTop: 32,
+    marginTop: 12,
     width: '100%',
     fontSize: 32,
     fontFamily: 'Montserrat_600SemiBold',
@@ -323,7 +328,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   voiceBtn: {
-    marginTop: 16,
+    marginTop: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -347,7 +352,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   voiceHint: {
-    marginTop: 10,
+    marginTop: 6,
     fontSize: 16,
     fontFamily: 'Montserrat_400Regular',
     color: '#555555',
@@ -355,7 +360,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   voiceError: {
-    marginTop: 8,
+    marginTop: 6,
     fontSize: 15,
     fontFamily: 'Montserrat_600SemiBold',
     color: '#B3261E',
@@ -394,8 +399,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 32,
-    paddingBottom: 40,
-    paddingTop: 8,
+    paddingBottom: 32,
+    paddingTop: 0,
   },
   dots: {
     flexDirection: 'row',

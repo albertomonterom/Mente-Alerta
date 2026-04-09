@@ -1,16 +1,16 @@
 import {
-  startVoiceDetection,
-  stopVoiceDetection
+    startVoiceDetection,
+    stopVoiceDetection
 } from '@/services/voiceDetectionService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
 import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useRef,
+    useState,
 } from 'react';
 import { Modal, Pressable, StyleSheet, Text, Vibration, View } from 'react-native';
 
@@ -21,6 +21,8 @@ interface WaitModeContextValue {
   timeLeft: number;
   startWaitMode: (durationInMinutes?: number) => void;
   stopWaitMode: () => void;
+  suspendWaitModeVoiceDetection: () => boolean;
+  resumeWaitModeVoiceDetection: () => void;
   triggerAlert: (type?: 'timer' | 'voice') => void;
   scheduleAlertAfter: (seconds: number) => void;
   defaultDuration: number;
@@ -57,6 +59,15 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
   const voiceSoundRef = useRef<import('expo-av').Audio.Sound | null>(null);
   const naturallyExpiredRef = useRef(false);
   const durationRef = useRef<number>(5); // ← guarda la duración original
+  const waitModeVoiceSuspendedRef = useRef(false);
+  const waitModeVoiceResumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearWaitModeVoiceResumeTimer = useCallback(() => {
+    if (waitModeVoiceResumeTimerRef.current !== null) {
+      clearTimeout(waitModeVoiceResumeTimerRef.current);
+      waitModeVoiceResumeTimerRef.current = null;
+    }
+  }, []);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -129,6 +140,8 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
       durationRef.current = durationInMinutes; // ← guarda la duración
       clearCountdown();
       clearScheduled();
+      clearWaitModeVoiceResumeTimer();
+      waitModeVoiceSuspendedRef.current = false;
 
       const totalSeconds = durationInMinutes * 60;
       setTimeLeft(totalSeconds);
@@ -176,10 +189,54 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
     naturallyExpiredRef.current = false;
     clearCountdown();
     clearScheduled();
+    clearWaitModeVoiceResumeTimer();
+    waitModeVoiceSuspendedRef.current = false;
     setIsActive(false);
     setTimeLeft(0);
     stopVoiceDetection();
-  }, [clearCountdown, clearScheduled]);
+  }, [clearCountdown, clearScheduled, clearWaitModeVoiceResumeTimer]);
+
+  const suspendWaitModeVoiceDetection = useCallback(() => {
+    if (!isActive) return false;
+    clearWaitModeVoiceResumeTimer();
+    waitModeVoiceSuspendedRef.current = true;
+    stopVoiceDetection();
+    return true;
+  }, [isActive, clearWaitModeVoiceResumeTimer]);
+
+  const resumeWaitModeVoiceDetection = useCallback(() => {
+    if (!waitModeVoiceSuspendedRef.current) return;
+    waitModeVoiceSuspendedRef.current = false;
+    if (!isActive) return;
+
+    clearWaitModeVoiceResumeTimer();
+    waitModeVoiceResumeTimerRef.current = setTimeout(() => {
+      waitModeVoiceResumeTimerRef.current = null;
+      if (!isActive) return;
+      AsyncStorage.getItem('userName').then(storedName => {
+        const name = storedName?.trim() ?? ''.trim();
+        if (name.length > 0) {
+          startVoiceDetection({
+            userName: name,
+            onNameDetected: () => {
+              naturallyExpiredRef.current = false;
+              clearCountdown();
+              clearScheduled();
+              setIsActive(false);
+              setTimeLeft(0);
+              triggerAlert('voice');
+            },
+          });
+        }
+      });
+    }, 650);
+  }, [
+    isActive,
+    clearCountdown,
+    clearScheduled,
+    clearWaitModeVoiceResumeTimer,
+    triggerAlert,
+  ]);
 
   // ── snooze ─────────────────────────────────────────────────────────────────
 
@@ -218,8 +275,9 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
     return () => {
       clearCountdown();
       clearScheduled();
+      clearWaitModeVoiceResumeTimer();
     };
-  }, [clearCountdown, clearScheduled]);
+  }, [clearCountdown, clearScheduled, clearWaitModeVoiceResumeTimer]);
 
   // ── Value ──────────────────────────────────────────────────────────────────
 
@@ -228,6 +286,8 @@ export function WaitModeProvider({ children }: { children: React.ReactNode }) {
     timeLeft,
     startWaitMode,
     stopWaitMode,
+    suspendWaitModeVoiceDetection,
+    resumeWaitModeVoiceDetection,
     triggerAlert,
     scheduleAlertAfter,
     defaultDuration,
