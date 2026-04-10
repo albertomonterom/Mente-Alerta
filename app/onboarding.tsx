@@ -15,11 +15,11 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 
 const NAVY = '#1B3A6B';
-const GREEN = '#2E7D32';
 
 export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
@@ -32,8 +32,12 @@ export default function OnboardingScreen() {
   }
 
   function handleNext() {
-    if (step < 2) setStep(step + 1);
-    else handleComplete();
+    if (step < 2) {
+      setStep(currentStep => currentStep + 1);
+      return;
+    }
+
+    void handleComplete();
   }
 
   const canAdvance = step !== 1 || name.trim().length > 0;
@@ -46,31 +50,25 @@ export default function OnboardingScreen() {
       <SafeAreaView style={styles.container}>
         {/* Content area */}
         <View style={styles.content}>
-          {step === 0 && <StepWelcome />}
-          {step === 1 && <StepName name={name} setName={setName} />}
-          {step === 2 && <StepHowItWorks />}
+          {step === 0 && <StepWelcome onNext={handleNext} />}
+          {step === 1 && (
+            <StepName
+              name={name}
+              setName={setName}
+              onNext={handleNext}
+              canAdvance={canAdvance}
+            />
+          )}
+          {step === 2 && <StepHowItWorks onStart={handleNext} />}
         </View>
 
-        {/* Footer: dots + button */}
+        {/* Footer: dots */}
         <View style={styles.footer}>
           <View style={styles.dots}>
             {[0, 1, 2].map(i => (
               <View key={i} style={[styles.dot, i === step && styles.dotActive]} />
             ))}
           </View>
-          <Pressable
-            style={[styles.btn, !canAdvance && styles.btnDisabled]}
-            onPress={handleNext}
-            disabled={!canAdvance}
-            accessibilityLabel={step === 2 ? 'Comenzar' : 'Siguiente'}
-          >
-            <Text style={styles.btnText}>
-              {step === 2 ? '¡Comenzar!' : 'Siguiente'}
-            </Text>
-            {step < 2 && (
-              <Ionicons name="arrow-forward" size={24} color="#FFFFFF" style={{ marginLeft: 10 }} />
-            )}
-          </Pressable>
         </View>
       </SafeAreaView>
     </KeyboardAvoidingView>
@@ -78,7 +76,7 @@ export default function OnboardingScreen() {
 }
 
 // ── Step 0: Welcome ───────────────────────────────────────────────────────────
-function StepWelcome() {
+function StepWelcome({ onNext }: { onNext: () => void }) {
   return (
     <View style={styles.stepContainer}>
       <View style={styles.iconCircle}>
@@ -88,12 +86,32 @@ function StepWelcome() {
       <Text style={styles.body}>
         {'Tu compañero de juegos mientras esperas tu turno.\n\nMantente activo y recibe una alerta cuando sea tu momento.'}
       </Text>
+
+      <TouchableOpacity
+        style={styles.inlineNextBtn}
+        onPress={onNext}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Siguiente"
+      >
+        <Text style={styles.inlineNextBtnText}>Siguiente</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 // ── Step 1: Name input ────────────────────────────────────────────────────────
-function StepName({ name, setName }: { name: string; setName: (v: string) => void }) {
+function StepName({
+  name,
+  setName,
+  onNext,
+  canAdvance,
+}: {
+  name: string;
+  setName: (v: string) => void;
+  onNext: () => void;
+  canAdvance: boolean;
+}) {
   const [isListening, setIsListening] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
 
@@ -238,12 +256,23 @@ function StepName({ name, setName }: { name: string; setName: (v: string) => voi
       </Text>
 
       {voiceError ? <Text style={styles.voiceError}>{voiceError}</Text> : null}
+
+      <TouchableOpacity
+        style={[styles.inlineNextBtn, !canAdvance && styles.inlineNextBtnDisabled]}
+        onPress={onNext}
+        activeOpacity={0.85}
+        disabled={!canAdvance}
+        accessibilityRole="button"
+        accessibilityLabel="Siguiente"
+      >
+        <Text style={styles.inlineNextBtnText}>Siguiente</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 // ── Step 2: How it works ──────────────────────────────────────────────────────
-function StepHowItWorks() {
+function StepHowItWorks({ onStart }: { onStart: () => void }) {
   const items: { icon: React.ComponentProps<typeof Ionicons>['name']; text: string }[] = [
     { icon: 'game-controller', text: 'Juega y mantén tu mente activa' },
     { icon: 'timer-outline',   text: 'Activa el Modo Espera cuando tu turno esté cerca' },
@@ -260,6 +289,16 @@ function StepHowItWorks() {
           <Text style={styles.howText}>{item.text}</Text>
         </View>
       ))}
+
+      <TouchableOpacity
+        style={styles.inlineNextBtn}
+        onPress={onStart}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Comenzar"
+      >
+        <Text style={styles.inlineNextBtnText}>Comenzar</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -406,7 +445,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 10,
-    marginBottom: 24,
+    marginBottom: 8,
   },
   dot: {
     width: 10,
@@ -418,20 +457,19 @@ const styles = StyleSheet.create({
     width: 30,
     backgroundColor: NAVY,
   },
-  btn: {
-    flexDirection: 'row',
-    backgroundColor: GREEN,
-    borderRadius: 18,
-    height: 72,
-    alignItems: 'center',
-    justifyContent: 'center',
+  inlineNextBtn: {
+    marginTop: 22,
+    backgroundColor: NAVY,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
   },
-  btnDisabled: {
-    backgroundColor: '#AAAAAA',
-  },
-  btnText: {
-    fontSize: 26,
-    fontFamily: 'Montserrat_700Bold',
+  inlineNextBtnText: {
     color: '#FFFFFF',
+    fontSize: 22,
+    fontFamily: 'Montserrat_700Bold',
+  },
+  inlineNextBtnDisabled: {
+    backgroundColor: '#AAAAAA',
   },
 });
